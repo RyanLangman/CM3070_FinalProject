@@ -17,7 +17,7 @@
         "env": {
           "ENVIRONMENT": "dev"
         },
-        "python": "${workspaceFolder}/venv/Scripts/python"
+        "python": "${workspaceFolder}/venv/bin/python"
       }
     ]
   }
