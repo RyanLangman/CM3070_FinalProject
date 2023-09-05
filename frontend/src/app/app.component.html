@@ -21,8 +21,10 @@
       </div>
 
       <!-- Buttons -->
-      <button (click)="getVideoFeed()" class="btn btn-primary">Get Video Feed</button>
-      <button (click)="getSystemSettings()" class="btn btn-secondary">Get System Settings</button>
+      <!-- Dashboard Component HTML -->
+      <button (click)="connectToWebsocket()">Connect to Webcam</button>
+      <button (click)="disconnectWebsocket()">Disconnect</button>
+      <img [src]="imageSrc" alt="Webcam Feed" />
     </main>
   </div>
 </div>

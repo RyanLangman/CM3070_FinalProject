@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ApiService } from './api.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -8,19 +9,24 @@ import { ApiService } from './api.service';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
-  title = 'frontend';
-  
-  constructor(private apiService: ApiService) { }
+  imageSrc: string | undefined;
+  private imageSubscription: Subscription;
 
-  getVideoFeed() {
-    this.apiService.getVideoFeed().subscribe(data => {
-      console.log(data);
+  constructor(private apiService: ApiService) {
+    this.imageSubscription = this.apiService.imageSubject.subscribe(image => {
+      this.imageSrc = image;
     });
   }
 
-  getSystemSettings() {
-    this.apiService.getSystemSettings().subscribe(data => {
-      console.log(data);
-    });
+  connectToWebsocket(): void {
+    this.apiService.connectToWebsocket();
+  }
+
+  disconnectWebsocket(): void {
+    this.apiService.disconnectWebsocket();
+  }
+
+  ngOnDestroy(): void {
+    this.imageSubscription.unsubscribe();
   }
 }

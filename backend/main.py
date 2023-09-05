@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.routing import APIRouter
-from routes.routes import routes as api_routes  # Assuming your routes file is in api/routes.py
+from routes.routes import routes as api_routes
 
 app = FastAPI()
 
