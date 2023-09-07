@@ -24,7 +24,18 @@
       <!-- Dashboard Component HTML -->
       <button (click)="connectToWebsocket()">Connect to Webcam</button>
       <button (click)="disconnectWebsocket()">Disconnect</button>
-      <img [src]="imageSrc" alt="Webcam Feed" />
+
+      <div class="container">
+        <div class="row">
+          <div class="col-md-8">
+            <!-- Your video feed element -->
+            <img [src]="imageSrc" alt="Webcam Feed" />
+          </div>
+          <div class="col-md-4">
+            <!-- Other dashboard elements -->
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </div>
