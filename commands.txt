@@ -1,0 +1,5 @@
+# Run python
+python -m uvicorn main:app --reload
+
+# Run Angular
+ng serve
