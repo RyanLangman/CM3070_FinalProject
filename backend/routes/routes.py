@@ -78,13 +78,11 @@ async def websocket_endpoint(websocket: WebSocket, background_tasks: BackgroundT
     cap = cv2.VideoCapture(available_cameras[0])
     connection_closed = False
 
-    # Initialize YOLO
-    net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
-    
-
     frame_rate = 30  # Assuming 30 FPS for the webcam
     frame_window = frame_rate * 5  # Number of frames for 5 seconds
     frames = deque(maxlen=frame_window)  # Fixed-size queue to store frames
+    
+    settings = load_settings_from_file()
 
     try:
         while True:
@@ -98,11 +96,12 @@ async def websocket_endpoint(websocket: WebSocket, background_tasks: BackgroundT
             # Add the captured frame to the deque
             frames.append(frame)
             
-            frame = apply_night_vision(frame)
+            if settings.NightVisionEnabled:
+                frame = apply_night_vision(frame)
             
-            # background_tasks.add_task(
-            #     perform_detection, frame, net, face_cascade, frame_count, skip_frames)
-            frame = detect_faces(frame, face_cascade)
+            if settings.FacialRecognitionEnabled:
+                background_tasks.add_task(
+                    perform_detection, frame, face_cascade, frame_count, skip_frames)
             
             try:
                 to_send = resize_and_encode_frame(frame)

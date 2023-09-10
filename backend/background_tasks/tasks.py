@@ -51,26 +51,17 @@ else:
 
 int_to_label = {v: k for k, v in label_to_int.items()}  # Inverse mapping
 
-async def perform_detection(frame, net, face_cascade, frame_count, skip_frames):
-    return detect_faces(frame, face_cascade, recognizer)
-    
-    # if frame_count % skip_frames == 0:
-    #     try:
-    #         # Perform face detection
-    #         final_frame = detect_faces(frame, face_cascade)
-    #     except Exception as e:
-    #         print(f"Face detection failed: {e}")
-    #         final_frame = frame  # use the original frame if face detection fails
-        
-    #     # try:
-    #     #     # Perform object detection
-    #     #     final_frame = detect_objects(final_frame, net)
-    #     # except Exception as e:
-    #     #     print(f"Object detection failed: {e}")
-    #     #     final_frame = final_frame  # use the frame_with_faces if object detection fails
+async def perform_detection(frame, face_cascade, frame_count, skip_frames):
+    if frame_count % skip_frames == 0:
+        try:
+            # Perform face detection
+            final_frame = detect_faces(frame, face_cascade)
+        except Exception as e:
+            print(f"Face detection failed: {e}")
+            final_frame = frame  # use the original frame if face detection fails
             
-    #     return final_frame
-    # return frame
+        return final_frame
+    return frame
 
 def resize_and_encode_frame(frame):
     original_height, original_width = frame.shape[:2]
@@ -105,65 +96,65 @@ def detect_faces(frame, face_cascade):
 
     return frame
 
-def detect_objects(frame, net, labels):
-    labeled_frame = frame.copy()  # To keep a copy with bounding boxes and labels
-    # YOLO requires the input frame to be in the shape (416, 416) and normalized
-    blob = cv2.dnn.blobFromImage(frame, 1/255.0, (416, 416), swapRB=True, crop=False)
-    net.setInput(blob)
+# def detect_objects(frame, net, labels):
+#     labeled_frame = frame.copy()  # To keep a copy with bounding boxes and labels
+#     # YOLO requires the input frame to be in the shape (416, 416) and normalized
+#     blob = cv2.dnn.blobFromImage(frame, 1/255.0, (416, 416), swapRB=True, crop=False)
+#     net.setInput(blob)
 
-    # Forward pass
-    layer_names = net.getLayerNames()
+#     # Forward pass
+#     layer_names = net.getLayerNames()
 
-    output_layer_names = [layer_names[i - 1] for i in net.getUnconnectedOutLayers()]
-    outputs = net.forward(output_layer_names)
+#     output_layer_names = [layer_names[i - 1] for i in net.getUnconnectedOutLayers()]
+#     outputs = net.forward(output_layer_names)
 
-    boxes = []
-    confidences = []
-    class_ids = []
+#     boxes = []
+#     confidences = []
+#     class_ids = []
 
-    # Thresholds for YOLO
-    conf_threshold = 0.5
-    nms_threshold = 0.4
+#     # Thresholds for YOLO
+#     conf_threshold = 0.5
+#     nms_threshold = 0.4
 
-    h, w = frame.shape[:2]
+#     h, w = frame.shape[:2]
 
-    for output in outputs:
-        for detection in output:
-            scores = detection[5:]
-            class_id = np.argmax(scores)
-            confidence = scores[class_id]
-            if confidence > conf_threshold:
-                box = detection[:4] * np.array([w, h, w, h])
-                (center_x, center_y, width, height) = box.astype("int")
-                x = int(center_x - (width / 2))
-                y = int(center_y - (height / 2))
+#     for output in outputs:
+#         for detection in output:
+#             scores = detection[5:]
+#             class_id = np.argmax(scores)
+#             confidence = scores[class_id]
+#             if confidence > conf_threshold:
+#                 box = detection[:4] * np.array([w, h, w, h])
+#                 (center_x, center_y, width, height) = box.astype("int")
+#                 x = int(center_x - (width / 2))
+#                 y = int(center_y - (height / 2))
 
-                boxes.append([x, y, int(width), int(height)])
-                confidences.append(float(confidence))
-                class_ids.append(class_id)
+#                 boxes.append([x, y, int(width), int(height)])
+#                 confidences.append(float(confidence))
+#                 class_ids.append(class_id)
 
-    # Apply non-maxima suppression to suppress weak, overlapping bounding boxes
-    indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
+#     # Apply non-maxima suppression to suppress weak, overlapping bounding boxes
+#     indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
 
-    # Draw the bounding box on the frame
-    for i in indices:
-        if isinstance(i, np.ndarray) or isinstance(i, list):
-            i = i[0]
-        box = boxes[i]
-        (x, y) = (box[0], box[1])
-        (w, h) = (box[2], box[3])
+#     # Draw the bounding box on the frame
+#     for i in indices:
+#         if isinstance(i, np.ndarray) or isinstance(i, list):
+#             i = i[0]
+#         box = boxes[i]
+#         (x, y) = (box[0], box[1])
+#         (w, h) = (box[2], box[3])
         
-        # Only detect specific objects (pets and dangerous objects)
-        detected_class = labels[class_ids[i]]
-        if detected_class in ['dog', 'cat', 'bird', 'knife', 'gun']:
-            color = [0, 0, 255]  # Red color for these specific objects
-            cv2.rectangle(labeled_frame, (x, y), (x + w, y + h), color, 2)
-            cv2.putText(labeled_frame, detected_class, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+#         # Only detect specific objects (pets and dangerous objects)
+#         detected_class = labels[class_ids[i]]
+#         if detected_class in ['dog', 'cat', 'bird', 'knife', 'gun']:
+#             color = [0, 0, 255]  # Red color for these specific objects
+#             cv2.rectangle(labeled_frame, (x, y), (x + w, y + h), color, 2)
+#             cv2.putText(labeled_frame, detected_class, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
             
-            # Save frames
-            save_frame(frame, labeled_frame)
+#             # Save frames
+#             save_frame(frame, labeled_frame)
             
-    return labeled_frame
+#     return labeled_frame
 
 def send_telegram_notification(message: str):
     # Your Telegram API logic here to send a message
