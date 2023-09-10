@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 import numpy as np
 import time
+from collections import deque
 
 # Globals
 cooldown_period = 300
@@ -26,6 +27,8 @@ int_labels = []
 base_dir = os.path.dirname(os.path.abspath(__file__))
 image_dir = os.path.join(base_dir, "reference_images")
 print(f"Scanning directory: {image_dir}")
+# Initialize variables
+label_counter = 0
 
 # Check if the directory exists
 for root, dirs, files in os.walk(image_dir):
@@ -33,18 +36,24 @@ for root, dirs, files in os.walk(image_dir):
         if file.endswith("png") or file.endswith("jpg"):
             path = os.path.join(root, file)
             label = os.path.basename(root)  # Check if this is correct
+
+            # Assign a unique integer to each label
+            if label not in label_to_int:
+                label_to_int[label] = label_counter
+                label_counter += 1
+
             image = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
             faces = face_cascade.detectMultiScale(image, scaleFactor=1.1, minNeighbors=5)
             
             for (x, y, w, h) in faces:
                 roi = image[y:y+h, x:x+w]
                 X_train.append(roi)
-                y_labels.append(label)  # Check if this line is being executed
-else:
-    print(f"Directory {image_dir} does not exist.")
+                y_labels.append(label)  
+                int_labels.append(label_to_int[label])  # Add the corresponding integer label
 
 print(f"Number of training images: {len(X_train)}")
 print(f"Number of labels: {len(int_labels)}")
+print(f"Label to Int Mapping: {label_to_int}")
 
 # Train the recognizer
 if len(X_train) > 0 and len(int_labels) > 0:
@@ -55,9 +64,14 @@ else:
 
 int_to_label = {v: k for k, v in label_to_int.items()}  # Inverse mapping
 
-# Initialize camera and start capturing frames in a separate thread
 def start_camera(camera_id, settings):
     cap = cv2.VideoCapture(camera_id)
+
+    # Get the frame rate dynamically
+    frame_rate = int(cap.get(cv2.CAP_PROP_FPS))
+  
+    # Initialize deque with maxlen set to frame_rate * 30
+    frames[camera_id] = deque(maxlen=frame_rate * 30)
 
     while True:
         ret, frame = cap.read()
@@ -67,8 +81,9 @@ def start_camera(camera_id, settings):
             if settings.FacialRecognitionEnabled:
                 frame = detect_faces(frame)
             with frame_locks[camera_id]:
-                frames[camera_id] = frame
+                frames[camera_id].append(frame)
         else:
+            # Something went wrong, notify the user
             print("Failed to capture frame")
 
 async def perform_detection(frame, face_cascade, frame_count, skip_frames):
@@ -92,7 +107,7 @@ def resize_and_encode_frame(frame):
     _, buffer = cv2.imencode('.jpg', resized_frame)
     return buffer.tobytes()
 
-def detect_faces(frame, face_cascade):
+def detect_faces(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
     
@@ -115,66 +130,6 @@ def detect_faces(frame, face_cascade):
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
     return frame
-
-# def detect_objects(frame, net, labels):
-#     labeled_frame = frame.copy()  # To keep a copy with bounding boxes and labels
-#     # YOLO requires the input frame to be in the shape (416, 416) and normalized
-#     blob = cv2.dnn.blobFromImage(frame, 1/255.0, (416, 416), swapRB=True, crop=False)
-#     net.setInput(blob)
-
-#     # Forward pass
-#     layer_names = net.getLayerNames()
-
-#     output_layer_names = [layer_names[i - 1] for i in net.getUnconnectedOutLayers()]
-#     outputs = net.forward(output_layer_names)
-
-#     boxes = []
-#     confidences = []
-#     class_ids = []
-
-#     # Thresholds for YOLO
-#     conf_threshold = 0.5
-#     nms_threshold = 0.4
-
-#     h, w = frame.shape[:2]
-
-#     for output in outputs:
-#         for detection in output:
-#             scores = detection[5:]
-#             class_id = np.argmax(scores)
-#             confidence = scores[class_id]
-#             if confidence > conf_threshold:
-#                 box = detection[:4] * np.array([w, h, w, h])
-#                 (center_x, center_y, width, height) = box.astype("int")
-#                 x = int(center_x - (width / 2))
-#                 y = int(center_y - (height / 2))
-
-#                 boxes.append([x, y, int(width), int(height)])
-#                 confidences.append(float(confidence))
-#                 class_ids.append(class_id)
-
-#     # Apply non-maxima suppression to suppress weak, overlapping bounding boxes
-#     indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
-
-#     # Draw the bounding box on the frame
-#     for i in indices:
-#         if isinstance(i, np.ndarray) or isinstance(i, list):
-#             i = i[0]
-#         box = boxes[i]
-#         (x, y) = (box[0], box[1])
-#         (w, h) = (box[2], box[3])
-        
-#         # Only detect specific objects (pets and dangerous objects)
-#         detected_class = labels[class_ids[i]]
-#         if detected_class in ['dog', 'cat', 'bird', 'knife', 'gun']:
-#             color = [0, 0, 255]  # Red color for these specific objects
-#             cv2.rectangle(labeled_frame, (x, y), (x + w, y + h), color, 2)
-#             cv2.putText(labeled_frame, detected_class, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
-            
-#             # Save frames
-#             save_frame(frame, labeled_frame)
-            
-#     return labeled_frame
 
 def send_telegram_notification(message: str):
     # Your Telegram API logic here to send a message

@@ -1,0 +1,7 @@
+{
+    "NightVisionEnabled": false,
+    "FacialRecognitionEnabled": false,
+    "NotificationCooldown": 10,
+    "TelegramAPI": "api_key_here",
+    "RecordingInSeconds": 5
+}

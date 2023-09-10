@@ -20,19 +20,32 @@
         <h1 class="h2">Dashboard</h1>
       </div>
 
-      <!-- Buttons -->
-      <!-- Dashboard Component HTML -->
-      <button (click)="connectToWebsocket()">Connect to Webcam</button>
-      <button (click)="disconnectWebsocket()">Disconnect</button>
-
-      <div class="container">
-        <div class="row">
-          <div class="col-md-8">
-            <!-- Your video feed element -->
-            <img [src]="imageSrc" alt="Webcam Feed" />
-          </div>
-          <div class="col-md-4">
-            <!-- Other dashboard elements -->
+      <!-- Display video previews in cards -->
+      <div class="row">
+        <div class="col-md-4" *ngFor="let frame of videoPreviews?.frames | keyvalue">
+          <div class="card">
+            <div class="card-header">
+              Camera ID: {{ frame.key }}
+            </div>
+            <div class="card-body">
+              <img style="width: 100%" [src]="'data:image/png;base64,' + frame.value" alt="Frame Preview" />
+            </div>
+            <div class="card-footer">
+              <button class="btn btn-primary" 
+                      *ngIf="!isMonitoring[+frame.key]" 
+                      (click)="startMonitoring(+frame.key)">
+                Start Monitoring
+              </button>
+              <button class="btn btn-warning" 
+                      *ngIf="isMonitoring[+frame.key]" 
+                      (click)="stopMonitoring(+frame.key)">
+                Stop Monitoring
+              </button>
+              <button class="btn btn-secondary" 
+                      (click)="viewLive(+frame.key)">
+                View Live
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -1,32 +1,55 @@
-import { Component } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ApiService } from './api.service';
-import { Subscription } from 'rxjs';
+import { LivestreamModalComponent } from './livestream-modal/livestream-modal.component';
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+
+// Define the VideoPreviews type
+interface VideoPreviews {
+  frames: { [key: number]: string };  // Dictionary of webcam IDs to base64 encoded frame strings
+}
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
-export class AppComponent {
+export class AppComponent implements OnInit, OnDestroy {
   imageSrc: string | undefined;
-  private imageSubscription: Subscription;
+  videoPreviews: VideoPreviews;
+  isMonitoring: { [key: number]: boolean } = {};
 
-  constructor(private apiService: ApiService) {
-    this.imageSubscription = this.apiService.imageSubject.subscribe(image => {
-      this.imageSrc = image;
+  constructor(private apiService: ApiService, private modalService: NgbModal) {
+    this.videoPreviews = { frames: {} };
+  }
+
+  ngOnInit(): void {  // OnInit lifecycle hook added
+    this.getCamerasAndVideoFeedPreviews();
+  }
+
+  getCamerasAndVideoFeedPreviews(): void {
+    this.apiService.getVideoFeedPreviews().subscribe(response => {
+      console.log(response);
+      this.videoPreviews = response as VideoPreviews;  // Store the data
+    });
+  }
+  
+  startMonitoring(cameraId: number): void {
+    this.apiService.startMonitoring(cameraId).subscribe(response => {
+      this.isMonitoring[cameraId] = true;
     });
   }
 
-  connectToWebsocket(): void {
-    this.apiService.connectToWebsocket();
+  stopMonitoring(cameraId: number): void {
+    this.apiService.stopMonitoring(cameraId).subscribe(response => {
+      this.isMonitoring[cameraId] = false;
+    });
   }
 
-  disconnectWebsocket(): void {
-    this.apiService.disconnectWebsocket();
+  viewLive(cameraId: number): void {
+    const modalRef = this.modalService.open(LivestreamModalComponent);
+    modalRef.componentInstance.cameraId = cameraId;
   }
 
   ngOnDestroy(): void {
-    this.imageSubscription.unsubscribe();
   }
 }

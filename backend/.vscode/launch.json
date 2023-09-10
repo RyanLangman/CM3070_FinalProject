@@ -1,22 +1,21 @@
 {
     "version": "0.2.0",
     "configurations": [
-      {
-        "name": "Python: Uvicorn",
-        "type": "python",
-        "request": "launch",
-        "program": "${workspaceFolder}/venv/Scripts/uvicorn.exe" ,
-        "args": [
-          "main:app",
-          "--reload",
-          "--host",
-          "0.0.0.0",
-          "--port",
-          "8000"
-        ],
-        "python": "${workspaceFolder}/venv/Scripts/python.exe",
-        "justMyCode": false
-      }
+        {
+            "name": "Python: Uvicorn",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/venv/bin/uvicorn",
+            "args": [
+                "main:app",
+                "--reload",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8000"
+            ],
+            "python": "${workspaceFolder}/venv/bin/python",
+            "justMyCode": false
+        }
     ]
-  }
-  
+}

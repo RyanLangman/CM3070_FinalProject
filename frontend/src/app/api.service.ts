@@ -8,7 +8,7 @@ import { Observable, Subject } from 'rxjs';
 export class ApiService {
   private ws: WebSocket | undefined;
   public imageSubject = new Subject<string>();
-  private baseUrl: string = 'http://127.0.0.1:8000/api/v1';
+  private baseUrl: string = 'http://localhost:8000/api/v1';
 
   constructor(private http: HttpClient) { }
 
@@ -26,23 +26,40 @@ export class ApiService {
     }
   }
 
-  getVideoFeed(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/video_feed`);
+  getVideoFeedPreviews(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/video_feed_previews`);
+  }
+
+  startMonitoring(cameraId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/start_monitoring/${cameraId}`, {});
+  }
+
+  stopMonitoring(cameraId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/stop_monitoring/${cameraId}`, {});
   }
 
   getSystemSettings(): Observable<any> {
     return this.http.get(`${this.baseUrl}/settings`);
   }
 
-  toggleObjectDetection(): Observable<any> {
-    return this.http.post(`${this.baseUrl}/toggle_object_detection`, {});
+  updateSystemSettings(settings: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/settings`, settings);
   }
 
   toggleFacialRecognition(): Observable<any> {
     return this.http.post(`${this.baseUrl}/toggle_facial_recognition`, {});
   }
 
-  toggleFallDetection(): Observable<any> {
-    return this.http.post(`${this.baseUrl}/toggle_fall_detection`, {});
+  toggleNightVision(): Observable<any> {
+    return this.http.post(`${this.baseUrl}/toggle_night_vision`, {});
+  }
+
+  getRecordings(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/recordings`);
+  }
+
+  getWebSocket(cameraId: number): WebSocket {
+    const ws = new WebSocket(`ws://localhost:8000/api/v1/ws/${cameraId}`);
+    return ws;
   }
 }

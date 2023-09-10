@@ -5,7 +5,7 @@ import time
 from fastapi import BackgroundTasks
 from collections import deque
 from fastapi.responses import JSONResponse
-from background_tasks.tasks import perform_detection, resize_and_encode_frame, detect_faces, detect_objects, save_frame, frames, frame_locks, monitoring_flags, start_camera, apply_night_vision
+from background_tasks.tasks import perform_detection, resize_and_encode_frame, detect_faces, save_frame, frames, frame_locks, monitoring_flags, start_camera, apply_night_vision
 from models.models import Settings, Recordings, VideoPreviews
 from helpers.settings_methods import load_settings_from_file, save_settings_to_file
 from helpers.cameras import get_available_cameras
@@ -15,8 +15,6 @@ import threading
 routes = APIRouter()
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-
-routes = APIRouter()
 
 @routes.get("/video_feed_previews", response_model=VideoPreviews)
 async def get_video_feed():
@@ -88,15 +86,19 @@ async def get_recordings():
 @routes.websocket("/ws/{camera_id}")
 async def websocket_endpoint(websocket: WebSocket, camera_id: int):
     await websocket.accept()
-    
+
     if camera_id not in frames:
         await websocket.close()
         return
-    
+
     try:
         while True:
             with frame_locks[camera_id]:
-                frame = frames[camera_id]
+                if len(frames[camera_id]) > 0:
+                    frame = frames[camera_id][-1]  # Get the latest frame
+                else:
+                    frame = None
+
             if frame is not None:
                 to_send = resize_and_encode_frame(frame)
                 await websocket.send_text(to_send)
@@ -104,4 +106,3 @@ async def websocket_endpoint(websocket: WebSocket, camera_id: int):
                 await asyncio.sleep(0.01)
     except WebSocketDisconnect:
         await websocket.close()
-    
