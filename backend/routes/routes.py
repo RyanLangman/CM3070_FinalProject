@@ -17,8 +17,9 @@ routes = APIRouter()
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 routes = APIRouter()
-frames = {}  # Shared frame storage
-frame_locks = {}  # Locks for thread-safe frame access
+frames = {}
+frame_locks = {}
+monitoring_flags = {}
 
 @routes.get("/video_feed_previews", response_model=VideoPreviews)
 async def get_video_feed():
@@ -42,10 +43,20 @@ async def start_monitoring(camera_id: int):
     if camera_id not in frames:
         frames[camera_id] = None
         frame_locks[camera_id] = threading.Lock()
+        monitoring_flags[camera_id] = True  # Set the flag
         threading.Thread(target=start_camera, args=(camera_id,)).start()
         return JSONResponse(content={"message": f"Started monitoring camera {camera_id}"})
     else:
         return JSONResponse(content={"message": f"Already monitoring camera {camera_id}"})
+
+
+@routes.post("/stop_monitoring/{camera_id}")
+async def stop_monitoring(camera_id: int):
+    if camera_id in monitoring_flags:
+        monitoring_flags[camera_id] = False  # Clear the flag
+        return JSONResponse(content={"message": f"Stopped monitoring camera {camera_id}"})
+    else:
+        return JSONResponse(content={"message": f"No monitoring process found for camera {camera_id}"})
 
 @routes.get("/settings")
 async def get_system_settings():
