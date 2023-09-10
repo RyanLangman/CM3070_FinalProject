@@ -6,6 +6,7 @@ class Settings(BaseModel):
     FacialRecognitionEnabled: bool
     NotificationCooldown: int
     TelegramAPI: str
+    RecordingInMinutes: int
 
 class VideoPreviews(BaseModel):
     frames: Dict[int, str]  # Dictionary of webcam IDs to base64 encoded frame strings

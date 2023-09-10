@@ -4,14 +4,21 @@ import base64
 import time
 from fastapi import BackgroundTasks
 from collections import deque
+from fastapi.responses import JSONResponse
 from background_tasks.tasks import perform_detection, resize_and_encode_frame, detect_faces, detect_objects, save_frame, apply_night_vision
 from models.models import Settings, Recordings, VideoPreviews
 from helpers.settings_methods import load_settings_from_file, save_settings_to_file
 from helpers.cameras import get_available_cameras
+import asyncio
+import threading
 
 routes = APIRouter()
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+routes = APIRouter()
+frames = {}  # Shared frame storage
+frame_locks = {}  # Locks for thread-safe frame access
 
 @routes.get("/video_feed_previews", response_model=VideoPreviews)
 async def get_video_feed():
@@ -29,6 +36,16 @@ async def get_video_feed():
         cap.release()
 
     return VideoPreviews(frames=frames)
+
+@routes.post("/start_monitoring/{camera_id}")
+async def start_monitoring(camera_id: int):
+    if camera_id not in frames:
+        frames[camera_id] = None
+        frame_locks[camera_id] = threading.Lock()
+        threading.Thread(target=start_camera, args=(camera_id,)).start()
+        return JSONResponse(content={"message": f"Started monitoring camera {camera_id}"})
+    else:
+        return JSONResponse(content={"message": f"Already monitoring camera {camera_id}"})
 
 @routes.get("/settings")
 async def get_system_settings():
@@ -60,66 +77,41 @@ async def get_recordings():
     files = ["file1.mp4", "file2.mp4"]  # Example
     return Recordings(files=files)
 
-@routes.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, background_tasks: BackgroundTasks):
+@routes.websocket("/ws/{camera_id}")
+async def websocket_endpoint(websocket: WebSocket, camera_id: int):
     await websocket.accept()
     
-    skip_frames = 2  # Perform detection every 3rd frame
-    frame_count = 0
-    
-    available_cameras = get_available_cameras()
-    
-    if len(available_cameras) == 0:
-        print('No cameras available')
-        connection_closed = True
+    if camera_id not in frames:
         await websocket.close()
         return
     
-    cap = cv2.VideoCapture(available_cameras[0])
-    connection_closed = False
-
-    frame_rate = 30  # Assuming 30 FPS for the webcam
-    frame_window = frame_rate * 5  # Number of frames for 5 seconds
-    frames = deque(maxlen=frame_window)  # Fixed-size queue to store frames
-    
-    settings = load_settings_from_file()
-
     try:
         while True:
-            if connection_closed:
-                break
-             
-            start_time = time.time()  # Time measurement
-
-            ret, frame = cap.read()
-
-            # Add the captured frame to the deque
-            frames.append(frame)
-            
-            if settings.NightVisionEnabled:
-                frame = apply_night_vision(frame)
-            
-            if settings.FacialRecognitionEnabled:
-                background_tasks.add_task(
-                    perform_detection, frame, face_cascade, frame_count, skip_frames)
-            
-            try:
+            with frame_locks[camera_id]:
+                frame = frames[camera_id]
+            if frame is not None:
+                # Send frame over WebSocket
+                # (Assuming you have a method to encode the frame)
                 to_send = resize_and_encode_frame(frame)
-                
-                await websocket.send_text(base64.b64encode(to_send).decode('utf-8'))
-            except Exception as e:
-                print(f"Frame encoding or sending failed: {e }")
-                connection_closed = True
-                cap.release()
-                print("WebSocket disconnected, webcam released")
-                await websocket.close()
-
-            frame_count += 1
-            end_time = time.time()  # Time measurement
-            # print(f"Time taken for a loop: {end_time - start_time}")
+                await websocket.send_text(to_send)
+            else:
+                await asyncio.sleep(0.01)
     except WebSocketDisconnect:
-        connection_closed = True
-        cap.release()
-        print("WebSocket disconnected, webcam released")
         await websocket.close()
     
+# Initialize camera and start capturing frames in a separate thread
+def start_camera(camera_id):
+    cap = cv2.VideoCapture(camera_id)
+    settings = load_settings_from_file()
+
+    while True:
+        ret, frame = cap.read()
+        if ret:
+            if settings.NightVisionEnabled:
+                frame = apply_night_vision(frame)
+            if settings.FacialRecognitionEnabled:
+                frame = detect_faces(frame)
+            with frame_locks[camera_id]:
+                frames[camera_id] = frame
+        else:
+            print("Failed to capture frame")
