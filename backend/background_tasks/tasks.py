@@ -8,6 +8,10 @@ import time
 cooldown_period = 300
 last_notification_time = 0
 
+frames = {}
+frame_locks = {}
+monitoring_flags = {}
+
 # Train the face recognizer
 face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 recognizer = cv2.face.LBPHFaceRecognizer_create()
@@ -50,6 +54,22 @@ else:
     print("Insufficient data for training.")
 
 int_to_label = {v: k for k, v in label_to_int.items()}  # Inverse mapping
+
+# Initialize camera and start capturing frames in a separate thread
+def start_camera(camera_id, settings):
+    cap = cv2.VideoCapture(camera_id)
+
+    while True:
+        ret, frame = cap.read()
+        if ret:
+            if settings.NightVisionEnabled:
+                frame = apply_night_vision(frame)
+            if settings.FacialRecognitionEnabled:
+                frame = detect_faces(frame)
+            with frame_locks[camera_id]:
+                frames[camera_id] = frame
+        else:
+            print("Failed to capture frame")
 
 async def perform_detection(frame, face_cascade, frame_count, skip_frames):
     if frame_count % skip_frames == 0:
