@@ -1,0 +1,25 @@
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3">
+    <h1 class="h2">Recordings</h1>
+</div>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Filename</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Add table rows with data here -->
+        <tr *ngFor="let file of files">
+            <td>{{ file.filename }}</td>
+            <td>
+                <!-- Add action buttons here -->
+                <div class="btn-group" role="group">
+                  <button class="btn btn-primary">View</button>
+                  <button class="btn btn-danger" (click)="confirmDelete(file)">Delete</button>
+                </div>
+            </td>
+        </tr>
+    </tbody>
+</table>

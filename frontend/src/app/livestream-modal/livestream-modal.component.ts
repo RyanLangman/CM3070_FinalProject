@@ -19,7 +19,7 @@ export class LivestreamModalComponent implements OnDestroy {
       this.ws = this.apiService.getWebSocket(this.cameraId);
 
       this.ws.addEventListener('message', (event) => {
-        console.log('Test from websocket');
+        console.log('Test from websocket', event);
         this.liveImageSrc = 'data:image/jpeg;base64,' + event.data;
       });
     }

@@ -1,0 +1,28 @@
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3">
+    <h1 class="h2">Dashboard</h1>
+</div>
+
+<!-- Display video previews in cards -->
+<div class="row">
+    <div class="col-md-4" *ngFor="let frame of videoPreviews?.frames | keyvalue">
+        <div class="card">
+            <div class="card-header">
+                Camera ID: {{ frame.key }}
+            </div>
+            <div class="card-body">
+                <img style="width: 100%" [src]="'data:image/png;base64,' + frame.value" alt="Frame Preview" />
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-primary" *ngIf="!isMonitoring[+frame.key]" (click)="startMonitoring(+frame.key)">
+                    Start Monitoring
+                </button>
+                <button class="btn btn-warning" *ngIf="isMonitoring[+frame.key]" (click)="stopMonitoring(+frame.key)">
+                    Stop Monitoring
+                </button>
+                <button class="btn btn-secondary" (click)="viewLive(+frame.key)">
+                    View Live
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

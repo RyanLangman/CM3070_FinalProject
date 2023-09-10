@@ -94,14 +94,15 @@ async def websocket_endpoint(websocket: WebSocket, camera_id: int):
     try:
         while True:
             with frame_locks[camera_id]:
-                if len(frames[camera_id]) > 0:
+                if frames[camera_id] is not None and len(frames[camera_id]) > 0:
                     frame = frames[camera_id][-1]  # Get the latest frame
                 else:
                     frame = None
 
             if frame is not None:
                 to_send = resize_and_encode_frame(frame)
-                await websocket.send_text(to_send)
+                await asyncio.sleep(0.05)
+                await websocket.send_text(base64.b64encode(to_send).decode('utf-8'))
             else:
                 await asyncio.sleep(0.01)
     except WebSocketDisconnect:

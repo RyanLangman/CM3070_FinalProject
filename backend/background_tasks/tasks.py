@@ -1,6 +1,6 @@
 import cv2
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 import time
 from collections import deque
@@ -26,7 +26,7 @@ int_labels = []
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 image_dir = os.path.join(base_dir, "reference_images")
-print(f"Scanning directory: {image_dir}")
+# print(f"Scanning directory: {image_dir}")
 # Initialize variables
 label_counter = 0
 
@@ -51,9 +51,9 @@ for root, dirs, files in os.walk(image_dir):
                 y_labels.append(label)  
                 int_labels.append(label_to_int[label])  # Add the corresponding integer label
 
-print(f"Number of training images: {len(X_train)}")
-print(f"Number of labels: {len(int_labels)}")
-print(f"Label to Int Mapping: {label_to_int}")
+# print(f"Number of training images: {len(X_train)}")
+# print(f"Number of labels: {len(int_labels)}")
+# print(f"Label to Int Mapping: {label_to_int}")
 
 # Train the recognizer
 if len(X_train) > 0 and len(int_labels) > 0:
@@ -108,6 +108,9 @@ def resize_and_encode_frame(frame):
     return buffer.tobytes()
 
 def detect_faces(frame):
+    global last_saved_time  # Declare as global to modify it
+    current_time = datetime.now()
+    
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
     
@@ -118,12 +121,30 @@ def detect_faces(frame):
         if id_ < len(y_labels):
             print(f"id_: {id_}, conf: {conf}")
 
-            if conf >= 85:
+            if conf <= 85:
                 label = y_labels[id_]
                 cv2.putText(frame, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
             else:
                 label = "Intruder"
                 cv2.putText(frame, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+                
+                if last_saved_time is None or current_time - last_saved_time >= timedelta(seconds=15):
+                    # Save the frame when intruder detected
+                    timestamp = current_time.strftime("%Y%m%d_%H%M%S")
+                    folder_path = f"notifications/{timestamp}"
+                    os.makedirs(folder_path, exist_ok=True)
+                    
+                    labelled_frame_path = os.path.join(folder_path, f"{timestamp}_intruder_labelled.jpg")
+                    unlabelled_frame_path = os.path.join(folder_path, f"{timestamp}_intruder_unlabelled.jpg")
+                    
+                    cv2.imwrite(labelled_frame_path, frame)  # Save frame with label and box
+                    
+                    # Remove box and label for unlabelled image
+                    unlabelled_frame = frame.copy()
+                    unlabelled_frame[y:y+h, x:x+w] = frame[y:y+h, x:x+w]
+                    cv2.imwrite(unlabelled_frame_path, unlabelled_frame)  # Save frame without label and box
+
+                    last_saved_time = current_time  # Update the last saved time
         else:
             print(f"Warning: id_ {id_} out of range for y_labels {y_labels}")
         
