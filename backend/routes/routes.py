@@ -1,129 +1,126 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import cv2
 import base64
-import numpy as np
+import time
+from fastapi import BackgroundTasks
+from collections import deque
+from background_tasks.tasks import perform_detection, resize_and_encode_frame, detect_faces, detect_objects, save_frame, apply_night_vision
+from models.models import Settings, Recordings, VideoPreviews
+from helpers.settings_methods import load_settings_from_file, save_settings_to_file
+from helpers.cameras import get_available_cameras
 
 routes = APIRouter()
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-@routes.get("/video_feed")
+@routes.get("/video_feed_previews", response_model=VideoPreviews)
 async def get_video_feed():
-    return {"message": "Video feed will be returned here"}
+    available_cameras = get_available_cameras()
+    frames = {}
+    
+    for camera_id in available_cameras:
+        cap = cv2.VideoCapture(camera_id)
+        ret, frame = cap.read()
+        
+        if ret:
+            to_send = resize_and_encode_frame(frame)
+            frames[camera_id] = base64.b64encode(to_send).decode('utf-8')
+        
+        cap.release()
+
+    return VideoPreviews(frames=frames)
 
 @routes.get("/settings")
 async def get_system_settings():
-    return {"message": "System settings will be returned here"}
+    current_settings = load_settings_from_file()
+    return current_settings
 
-@routes.post("/toggle_object_detection")
-async def toggle_object_detection():
-    return {"message": "Object detection toggled"}
+@routes.post("/settings")
+async def update_system_settings(settings: Settings):
+    save_settings_to_file(settings)
+    return {"message": "Settings updated"}
 
 @routes.post("/toggle_facial_recognition")
 async def toggle_facial_recognition():
-    return {"message": "Facial recognition toggled"}
+    settings = load_settings_from_file()
+    settings.FacialRecognitionEnabled = not settings.FacialRecognitionEnabled
+    save_settings_to_file(settings)
+    return {"message": "Facial recognition toggled", "new_state": settings.FacialRecognitionEnabled}
 
-@routes.post("/toggle_fall_detection")
-async def toggle_fall_detection():
-    return {"message": "Fall detection toggled"}
+@routes.post("/toggle_night_vision")
+async def toggle_night_vision():
+    settings = load_settings_from_file()
+    settings.NightVisionEnabled = not settings.NightVisionEnabled
+    save_settings_to_file(settings)
+    return {"message": "Night vision toggled", "new_state": settings.NightVisionEnabled}
+
+@routes.get("/recordings")
+async def get_recordings():
+    # Your logic to get the list of recordings
+    files = ["file1.mp4", "file2.mp4"]  # Example
+    return Recordings(files=files)
 
 @routes.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, background_tasks: BackgroundTasks):
     await websocket.accept()
-    cap = cv2.VideoCapture(0)  # 0 is the ID for the default webcam
+    
+    skip_frames = 2  # Perform detection every 3rd frame
+    frame_count = 0
+    
+    available_cameras = get_available_cameras()
+    
+    if len(available_cameras) == 0:
+        print('No cameras available')
+        connection_closed = True
+        await websocket.close()
+        return
+    
+    cap = cv2.VideoCapture(available_cameras[0])
     connection_closed = False
 
     # Initialize YOLO
     net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
+    
+
+    frame_rate = 30  # Assuming 30 FPS for the webcam
+    frame_window = frame_rate * 5  # Number of frames for 5 seconds
+    frames = deque(maxlen=frame_window)  # Fixed-size queue to store frames
 
     try:
         while True:
             if connection_closed:
                 break
+             
+            start_time = time.time()  # Time measurement
 
-            # Capture frame-by-frame
             ret, frame = cap.read()
 
-            # Perform face detection
-            frame_with_faces = detect_faces(frame, face_cascade)
+            # Add the captured frame to the deque
+            frames.append(frame)
+            
+            frame = apply_night_vision(frame)
+            
+            # background_tasks.add_task(
+            #     perform_detection, frame, net, face_cascade, frame_count, skip_frames)
+            frame = detect_faces(frame, face_cascade)
+            
+            try:
+                to_send = resize_and_encode_frame(frame)
+                
+                await websocket.send_text(base64.b64encode(to_send).decode('utf-8'))
+            except Exception as e:
+                print(f"Frame encoding or sending failed: {e }")
+                connection_closed = True
+                cap.release()
+                print("WebSocket disconnected, webcam released")
+                await websocket.close()
 
-            # Perform object detection
-            final_frame = detect_objects(frame_with_faces, net)
-
-            # Resize and encode the frame
-            to_send = resize_and_encode_frame(final_frame)
-
-            # Send the frame data as a base64 encoded string
-            await websocket.send_text(base64.b64encode(to_send).decode('utf-8'))
+            frame_count += 1
+            end_time = time.time()  # Time measurement
+            # print(f"Time taken for a loop: {end_time - start_time}")
     except WebSocketDisconnect:
         connection_closed = True
         cap.release()
         print("WebSocket disconnected, webcam released")
         await websocket.close()
-
-# Helper function for resizing and encoding frames
-def resize_and_encode_frame(frame):
-    original_height, original_width = frame.shape[:2]
-    aspect_ratio = original_width / original_height
-    new_width = 640  # or any value you want
-    new_height = int(new_width / aspect_ratio)
-    resized_frame = cv2.resize(frame, (new_width, new_height))
-    _, buffer = cv2.imencode('.jpg', resized_frame)
-    return buffer.tobytes()
-
-# Helper function for detecting faces
-def detect_faces(frame, face_cascade):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE)
-    for (x, y, w, h) in faces:
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-    return frame
-
-def detect_objects(frame, net):
-    # YOLO requires the input frame to be in the shape (416, 416) and normalized
-    blob = cv2.dnn.blobFromImage(frame, 1/255.0, (416, 416), swapRB=True, crop=False)
-    net.setInput(blob)
-
-    # Forward pass
-    layer_names = net.getLayerNames()
-    output_layer_names = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
-    outputs = net.forward(output_layer_names)
-
-    boxes = []
-    confidences = []
-    class_ids = []
-
-    # Thresholds for YOLO
-    conf_threshold = 0.5
-    nms_threshold = 0.4
-
-    h, w = frame.shape[:2]
-
-    for output in outputs:
-        for detection in output:
-            scores = detection[5:]
-            class_id = np.argmax(scores)
-            confidence = scores[class_id]
-            if confidence > conf_threshold:
-                box = detection[:4] * np.array([w, h, w, h])
-                (center_x, center_y, width, height) = box.astype("int")
-                x = int(center_x - (width / 2))
-                y = int(center_y - (height / 2))
-
-                boxes.append([x, y, int(width), int(height)])
-                confidences.append(float(confidence))
-                class_ids.append(class_id)
-
-    # Apply non-maxima suppression to suppress weak, overlapping bounding boxes
-    indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
-
-    # Draw the bounding box on the frame
-    for i in indices:
-        i = i[0]
-        box = boxes[i]
-        (x, y) = (box[0], box[1])
-        (w, h) = (box[2], box[3])
-        color = [0, 0, 255]  # Red color for generic objects
-        cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-
-    return frame
+    

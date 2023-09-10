@@ -1,3 +1,6 @@
+# Initialize venv
+.\venv\Scripts\activate
+
 # Run python
 python -m uvicorn main:app --reload
 
