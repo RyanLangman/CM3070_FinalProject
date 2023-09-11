@@ -14,14 +14,17 @@ import threading
 
 routes = APIRouter()
 
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+global_available_cameras = None
 
 @routes.get("/video_feed_previews", response_model=VideoPreviews)
 async def get_video_feed():
-    available_cameras = get_available_cameras()
+    global global_available_cameras 
+    
+    if global_available_cameras is None:
+        global_available_cameras = get_available_cameras()
     frames = {}
     
-    for camera_id in available_cameras:
+    for camera_id in global_available_cameras:
         cap = cv2.VideoCapture(camera_id)
         ret, frame = cap.read()
         
