@@ -1,3 +1,5 @@
+import os
+from websockets.exceptions import ConnectionClosedOK
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import cv2
 import base64
@@ -22,7 +24,7 @@ async def get_video_feed():
     
     if global_available_cameras is None:
         global_available_cameras = get_available_cameras()
-    frames = {}
+    cameras = {}
     
     for camera_id in global_available_cameras:
         cap = cv2.VideoCapture(camera_id)
@@ -30,11 +32,12 @@ async def get_video_feed():
         
         if ret:
             to_send = resize_and_encode_frame(frame)
-            frames[camera_id] = base64.b64encode(to_send).decode('utf-8')
+            cameras[camera_id] = base64.b64encode(to_send).decode('utf-8')
+            # frames[camera_id] = base64.b64encode(to_send).decode('utf-8')
         
         cap.release()
 
-    return VideoPreviews(frames=frames)
+    return VideoPreviews(frames=cameras)
 
 @routes.post("/start_monitoring/{camera_id}")
 async def start_monitoring(camera_id: int):
@@ -82,9 +85,20 @@ async def toggle_night_vision():
 
 @routes.get("/recordings")
 async def get_recordings():
-    # Your logic to get the list of recordings
-    files = ["file1.mp4", "file2.mp4"]  # Example
-    return Recordings(files=files)
+    root_dir = "recordings"  # Replace this with the actual path to your 'recordings' directory
+    recording_dict = {}
+
+    if os.path.exists(root_dir):
+        for date_folder in sorted(os.listdir(root_dir)):
+            date_path = os.path.join(root_dir, date_folder)
+            if os.path.isdir(date_path):
+                file_list = []
+                for file in sorted(os.listdir(date_path)):
+                    if file.endswith(".mp4"):  # Include other video extensions if necessary
+                        file_list.append(file)
+                recording_dict[date_folder] = file_list
+
+    return Recordings(files=recording_dict)
 
 @routes.websocket("/ws/{camera_id}")
 async def websocket_endpoint(websocket: WebSocket, camera_id: int):
@@ -98,7 +112,7 @@ async def websocket_endpoint(websocket: WebSocket, camera_id: int):
         while True:
             with frame_locks[camera_id]:
                 if frames[camera_id] is not None and len(frames[camera_id]) > 0:
-                    frame = frames[camera_id][-1]  # Get the latest frame
+                    frame = frames[camera_id]  # Get the latest frame
                 else:
                     frame = None
 
@@ -108,5 +122,7 @@ async def websocket_endpoint(websocket: WebSocket, camera_id: int):
                 await websocket.send_text(base64.b64encode(to_send).decode('utf-8'))
             else:
                 await asyncio.sleep(0.01)
+    except ConnectionClosedOK:
+        print("WebSocket connection closed cleanly.")
     except WebSocketDisconnect:
         await websocket.close()

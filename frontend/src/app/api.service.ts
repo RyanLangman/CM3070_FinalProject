@@ -22,6 +22,7 @@ export class ApiService {
 
   disconnectWebsocket(): void {
     if (this.ws) {
+      this.ws.send("closing");
       this.ws.close();
     }
   }

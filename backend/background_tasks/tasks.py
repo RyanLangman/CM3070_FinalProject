@@ -1,11 +1,16 @@
+import base64
+from copy import deepcopy
+import threading
 import cv2
 import os
 from datetime import datetime, timedelta
 import numpy as np
 import time
 from collections import deque
+from queue import Queue
 
 # Globals
+video_write_queue = Queue()
 last_saved_time = None
 cooldown_period = 300
 last_notification_time = 0
@@ -61,7 +66,35 @@ else:
 
 int_to_label = {v: k for k, v in label_to_int.items()}
 
+# Global video writing queue
+video_write_queue = Queue()
+
+def video_writer():
+    while True:
+        task = video_write_queue.get()
+
+        if task is None:
+            # Sentinel value to stop the thread
+            break
+
+        fourcc, frames_to_save, folder_path, camera_id, frame_rate, height, width = task
+
+        # Generate a new timestamp for each file
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        out = cv2.VideoWriter(f"{folder_path}/{camera_id}_{timestamp}.mp4", fourcc, frame_rate, (width, height))
+
+        for f in frames_to_save:
+            out.write(f)
+
+        out.release()
+
+        video_write_queue.task_done()
+
 def start_camera(camera_id, settings):
+    # Start the video writer thread
+    video_writer_thread = threading.Thread(target=video_writer)
+    video_writer_thread.start()
+
     cap = cv2.VideoCapture(camera_id)
     frame_rate = int(cap.get(cv2.CAP_PROP_FPS))
 
@@ -69,7 +102,8 @@ def start_camera(camera_id, settings):
     frames_to_save = deque(maxlen=frame_rate * 5)
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # codec for .mp4 format
-    out = None  # Will be initialized later based on the first frame's shape
+    height = None
+    width = None
 
     while monitoring_flags.get(camera_id, True):
         ret, frame = cap.read()
@@ -80,32 +114,29 @@ def start_camera(camera_id, settings):
                 frame = apply_night_vision(frame)
 
             # Initialize video writer object after we get the first frame
-            if out is None:
+            if height is None and width is None:
                 height, width = frame.shape[:2]
                 date_folder = datetime.now().strftime('%Y-%m-%d')
                 folder_path = f"recordings/{date_folder}"
                 os.makedirs(folder_path, exist_ok=True)
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                out = cv2.VideoWriter(f"{folder_path}/{camera_id}_{timestamp}.mp4", fourcc, frame_rate, (width, height))
 
             frames_to_save.append(frame)
 
-            # If deque is full, write frames to disk and clear the deque
             if len(frames_to_save) == frames_to_save.maxlen:
-                for f in frames_to_save:
-                    out.write(f)
-                frames_to_save.clear()  # Clear the deque for the next set of frames
+                video_write_queue.put((fourcc, deepcopy(frames_to_save), folder_path, camera_id, frame_rate, height, width))
+                frames_to_save.clear()
 
             with frame_locks[camera_id]:
-                frames[camera_id].append(frame)
+                frames[camera_id] = frame
         else:
             print("Failed to capture frame")
 
     # Release resources
     cap.release()
-    out.release()
     frames.pop(camera_id, None)
     frame_locks.pop(camera_id, None)
+    video_write_queue.put(None)
+    video_writer_thread.join()
 
 async def perform_detection(frame, face_cascade, frame_count, skip_frames):
     if frame_count % skip_frames == 0:
@@ -128,50 +159,66 @@ def resize_and_encode_frame(frame):
     _, buffer = cv2.imencode('.jpg', resized_frame)
     return buffer.tobytes()
 
+def resize_for_prediction(frame, target_height=480, target_width=640):
+    height, width = frame.shape[:2]
+    
+    # Calculate the ratio of the new dimensions to the original dimensions
+    height_ratio = target_height / height
+    width_ratio = target_width / width
+    
+    # Use the ratio to resize the frame
+    new_dim = (int(width * width_ratio), int(height * height_ratio))
+    resized_frame = cv2.resize(frame, new_dim, interpolation=cv2.INTER_AREA)
+    
+    return resized_frame
+
 def detect_faces(frame):
     global last_saved_time
     current_time = datetime.now()
 
     # Keep an unaltered copy of the frame
-    unaltered_frame = frame.copy()
+    copied_frame = frame.copy()
+    resized_frame = resize_for_prediction(frame)
+    gray_resized = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray_resized, scaleFactor=1.1, minNeighbors=5)
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+    height_ratio = frame.shape[0] / resized_frame.shape[0]
+    width_ratio = frame.shape[1] / resized_frame.shape[1]
 
     for (x, y, w, h) in faces:
-        roi_gray = gray[y:y+h, x:x+w]
+        x, y, w, h = int(x * width_ratio), int(y * height_ratio), int(w * width_ratio), int(h * height_ratio)
+        
+        roi_gray = gray_resized[y:y+h, x:x+w]
         id_, conf = recognizer.predict(roi_gray)
 
         if id_ < len(y_labels):
-            # print(f"id_: {id_}, conf: {conf}")
-
-            if conf >= 85:
+            if conf >= 95:
                 label = y_labels[id_]
-                cv2.putText(frame, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+                cv2.putText(copied_frame, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
             else:
                 label = "Intruder"
-                cv2.putText(frame, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+                cv2.putText(copied_frame, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
 
-                if last_saved_time is None or current_time - last_saved_time >= timedelta(seconds=15):
+                if last_saved_time is None or current_time - last_saved_time >= timedelta(seconds=15):        
                     # Save the frame when intruder detected
                     date_stamp = current_time.strftime("%Y-%m-%d")
                     time_stamp = current_time.strftime("%H%M%S")
                     folder_path = f"notifications/{date_stamp}"
                     os.makedirs(folder_path, exist_ok=True)
+                    
+                    cv2.rectangle(copied_frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
                     labelled_frame_path = os.path.join(folder_path, f"{date_stamp}_{time_stamp}_intruder_labelled.jpg")
                     unlabelled_frame_path = os.path.join(folder_path, f"{date_stamp}_{time_stamp}_intruder_unlabelled.jpg")
 
-                    cv2.imwrite(labelled_frame_path, frame)  # Save frame with label and box
-                    cv2.imwrite(unlabelled_frame_path, unaltered_frame)  # Save unaltered frame
+                    cv2.imwrite(labelled_frame_path, copied_frame)  # Save frame with label and box
+                    cv2.imwrite(unlabelled_frame_path, copied_frame)  # Save unaltered frame
 
                     last_saved_time = current_time  # Update the last saved time
         else:
             print(f"Warning: id_ {id_} out of range for y_labels {y_labels}")
 
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-
-    return frame
+    return copied_frame
 
 def send_telegram_notification(message: str):
     # Your Telegram API logic here to send a message
@@ -211,13 +258,16 @@ def is_dark_image(frame):
 
 def apply_night_vision(frame):
     if is_dark_image(frame):
-        # Convert the image to grayscale
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # Convert to YUV color space
+        yuv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)
         
-        # Apply histogram equalization
-        equalized_gray = cv2.equalizeHist(gray)
+        # Apply Adaptive Histogram Equalization to the Y channel
+        clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
+        yuv[:,:,0] = clahe.apply(yuv[:,:,0])
         
-        # Convert single channel to 3 channels
-        return cv2.cvtColor(equalized_gray, cv2.COLOR_GRAY2BGR)
+        # Convert back to BGR color space
+        enhanced_bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR)
+        
+        return enhanced_bgr
     
     return frame

@@ -10,6 +10,7 @@ class Settings(BaseModel):
 
 class VideoPreviews(BaseModel):
     frames: Dict[int, str]  # Dictionary of webcam IDs to base64 encoded frame strings
-
-class Recordings(BaseModel):
-    files: List[str]  # List of file paths or names
+    
+class Recordings:
+    def __init__(self, files: Dict[str, List[str]]):
+        self.files = files
