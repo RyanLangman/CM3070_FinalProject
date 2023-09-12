@@ -1,18 +1,19 @@
 import os
 from websockets.exceptions import ConnectionClosedOK
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 import cv2
 import base64
 import time
 from fastapi import BackgroundTasks
 from collections import deque
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from background_tasks.tasks import perform_detection, resize_and_encode_frame, detect_faces, save_frame, frames, frame_locks, monitoring_flags, start_camera, apply_night_vision
-from models.models import Settings, Recordings, VideoPreviews
+from models.models import Settings, Recording, VideoPreviews
 from helpers.settings_methods import load_settings_from_file, save_settings_to_file
 from helpers.cameras import get_available_cameras
 import asyncio
 import threading
+from aiohttp import web
 
 routes = APIRouter()
 
@@ -86,19 +87,31 @@ async def toggle_night_vision():
 @routes.get("/recordings")
 async def get_recordings():
     root_dir = "recordings"  # Replace this with the actual path to your 'recordings' directory
-    recording_dict = {}
+    recordings = []
 
     if os.path.exists(root_dir):
-        for date_folder in sorted(os.listdir(root_dir)):
+        for date_folder in sorted(os.listdir(root_dir), reverse=True):  # Sort folders by datetime in descending order
             date_path = os.path.join(root_dir, date_folder)
             if os.path.isdir(date_path):
-                file_list = []
-                for file in sorted(os.listdir(date_path)):
+                for file in sorted(os.listdir(date_path), reverse=True):  # Sort files by filename in descending order
                     if file.endswith(".mp4"):  # Include other video extensions if necessary
-                        file_list.append(file)
-                recording_dict[date_folder] = file_list
+                        recording = Recording(datetime=date_folder, filename=file)
+                        recordings.append(recording.dict())
 
-    return Recordings(files=recording_dict)
+    return JSONResponse(content={"files": recordings})
+
+@routes.get("/stream")
+async def stream_video(datetime: str, filename: str):
+    video_path = f"recordings/{datetime}/{filename}"
+
+    if not os.path.exists(video_path):
+        return {"status": 404, "detail": "File not found"}
+
+    def iterfile(): 
+        with open(video_path, mode="rb") as file_like:  # 
+            yield from file_like  # 
+
+    return StreamingResponse(iterfile(), media_type="video/mp4")
 
 @routes.websocket("/ws/{camera_id}")
 async def websocket_endpoint(websocket: WebSocket, camera_id: int):

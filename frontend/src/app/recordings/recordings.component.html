@@ -2,24 +2,40 @@
     <h1 class="h2">Recordings</h1>
 </div>
 
+<div class="pagination-controls">
+    <button class="btn btn-secondary" (click)="firstPage()">First Page</button>
+    <button class="btn btn-primary" (click)="prevPage()">Previous</button>
+    <span>Page {{currentPage}} of {{totalPages}}</span>
+    <button class="btn btn-primary" (click)="nextPage()">Next</button>
+    <button class="btn btn-secondary" (click)="lastPage()">Last Page</button>
+</div>
+
 <table class="table">
     <thead>
         <tr>
-            <th>Filename</th>
+            <th>Date</th>
+            <th>Filenames</th>
             <th>Actions</th>
         </tr>
     </thead>
     <tbody>
-        <!-- Add table rows with data here -->
-        <tr *ngFor="let file of files">
+        <tr *ngFor="let file of displayedFiles">
+            <td>{{ file.datetime }}</td>
             <td>{{ file.filename }}</td>
             <td>
-                <!-- Add action buttons here -->
                 <div class="btn-group" role="group">
-                  <button class="btn btn-primary">View</button>
-                  <button class="btn btn-danger" (click)="confirmDelete(file)">Delete</button>
+                    <button class="btn btn-primary" (click)="viewVideo(file)">View</button>
+                    <button class="btn btn-danger" (click)="confirmDelete(file)">Delete</button>
                 </div>
             </td>
         </tr>
     </tbody>
 </table>
+
+<div class="pagination-controls">
+    <button class="btn btn-secondary" (click)="firstPage()">First Page</button>
+    <button class="btn btn-primary" (click)="prevPage()">Previous</button>
+    <span>Page {{currentPage}} of {{totalPages}}</span>
+    <button class="btn btn-primary" (click)="nextPage()">Next</button>
+    <button class="btn btn-secondary" (click)="lastPage()">Last Page</button>
+</div>

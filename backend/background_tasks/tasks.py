@@ -98,8 +98,7 @@ def start_camera(camera_id, settings):
     cap = cv2.VideoCapture(camera_id)
     frame_rate = int(cap.get(cv2.CAP_PROP_FPS))
 
-    # Create deque to store 5 seconds of frames
-    frames_to_save = deque(maxlen=frame_rate * 5)
+    frames_to_save = deque(maxlen=frame_rate * (60*30))
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # codec for .mp4 format
     height = None
