@@ -4,23 +4,26 @@
 
 <!-- Display video previews in cards -->
 <div class="row">
-    <div class="col-md-4" *ngFor="let frame of videoPreviews?.frames | keyvalue">
+    <div class="col-md-4" *ngFor="let cameraPreview of previews?.cameraPreviews">
         <div class="card">
             <div class="card-header">
-                Camera ID: {{ frame.key }}
+                Camera ID: {{ cameraPreview.cameraId }}
             </div>
             <div class="card-body">
-                <img style="width: 100%" [src]="'data:image/png;base64,' + frame.value" alt="Frame Preview" />
+                <img style="width: 100%" [src]="'data:image/png;base64,' + cameraPreview.frame" alt="Frame Preview" />
             </div>
             <div class="card-footer">
-                <button class="btn btn-primary" *ngIf="!isMonitoring[+frame.key]" (click)="startMonitoring(+frame.key)">
+                <button class="btn btn-primary" *ngIf="!cameraPreview.isMonitoring" (click)="startMonitoring(cameraPreview.cameraId)">
                     Start Monitoring
                 </button>
-                <button class="btn btn-warning" *ngIf="isMonitoring[+frame.key]" (click)="stopMonitoring(+frame.key)">
+                <button class="btn btn-warning" *ngIf="cameraPreview.isMonitoring" (click)="stopMonitoring(cameraPreview.cameraId)">
                     Stop Monitoring
                 </button>
-                <button class="btn btn-secondary" (click)="viewLive(+frame.key)">
+                <button class="btn btn-secondary" *ngIf="cameraPreview.isMonitoring" (click)="view(cameraPreview)">
                     View Live
+                </button>
+                <button class="btn btn-secondary" *ngIf="!cameraPreview.isMonitoring" (click)="view(cameraPreview)">
+                    Preview
                 </button>
             </div>
         </div>

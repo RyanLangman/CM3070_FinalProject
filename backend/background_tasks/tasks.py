@@ -9,7 +9,10 @@ import time
 from collections import deque
 from queue import Queue
 
+from helpers.settings_methods import load_settings_from_file
+
 # Globals
+settings = load_settings_from_file('settings.json')
 video_write_queue = Queue()
 last_saved_time = None
 cooldown_period = 300
@@ -90,8 +93,7 @@ def video_writer():
 
         video_write_queue.task_done()
 
-def start_camera(camera_id, settings):
-    # Start the video writer thread
+def start_camera(camera_id, settings):    
     video_writer_thread = threading.Thread(target=video_writer)
     video_writer_thread.start()
 
@@ -129,6 +131,10 @@ def start_camera(camera_id, settings):
                 frames[camera_id] = frame
         else:
             print("Failed to capture frame")
+
+
+    video_write_queue.put((fourcc, deepcopy(frames_to_save), folder_path, camera_id, frame_rate, height, width))
+    frames_to_save.clear()
 
     # Release resources
     cap.release()
@@ -219,8 +225,7 @@ def detect_faces(frame):
 
     return copied_frame
 
-def send_telegram_notification(message: str):
-    # Your Telegram API logic here to send a message
+def send_notification(message: str):
     pass
 
 def save_frame(frame, labeled_frame, folder_name="object_detection"):
@@ -245,7 +250,7 @@ def save_frame(frame, labeled_frame, folder_name="object_detection"):
     current_time = time.time()
     if current_time - last_notification_time > cooldown_period:
         # Send notification to Telegram
-        send_telegram_notification(f"Warning: Dangerous object detected. Check images at {save_path}.")
+        send_notification(f"Warning: Intruder detected.")
         
         # Update the last notification time
         last_notification_time = current_time

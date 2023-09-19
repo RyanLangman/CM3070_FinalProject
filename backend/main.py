@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.routing import APIRouter
+from models.config import Config
 from routes.routes import routes as api_routes
 from fastapi.middleware.cors import CORSMiddleware
+from helpers.cameras import get_available_cameras
 
 app = FastAPI()
 
@@ -28,3 +30,7 @@ def read_root():
 
 # Include the routes from routes.py
 app.include_router(api_routes, prefix="/api/v1", tags=["API Endpoints"])
+
+@app.on_event("startup")
+async def startup_event():
+    Config.initialize()

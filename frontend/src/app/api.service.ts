@@ -63,4 +63,9 @@ export class ApiService {
     const ws = new WebSocket(`ws://localhost:8000/api/v1/ws/${cameraId}`);
     return ws;
   }
+
+  getPreviewWebsocket(cameraId: number): WebSocket {
+    const ws = new WebSocket(`ws://localhost:8000/api/v1/ws/${cameraId}/preview`);
+    return ws;
+  }
 }

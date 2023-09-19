@@ -1,6 +1,6 @@
 import cv2
 
-def get_available_cameras(max_cameras=1):
+def get_available_cameras(max_cameras=10):
     available_cameras = []
     for i in range(max_cameras):
         cap = cv2.VideoCapture(i)

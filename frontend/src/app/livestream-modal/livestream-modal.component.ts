@@ -2,24 +2,37 @@ import { Component, Input, OnDestroy } from '@angular/core';
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
 import { ApiService } from '../api.service';
 
+interface CameraPreview {
+  cameraId: number;
+  frame: string;
+  isMonitoring: boolean;
+}
+
 @Component({
   selector: 'app-livestream-modal',
   templateUrl: './livestream-modal.component.html',
   styleUrls: ['./livestream-modal.component.scss']
 })
 export class LivestreamModalComponent implements OnDestroy {
-  @Input() cameraId: number | undefined;
+  @Input() camera: CameraPreview | undefined;
   liveImageSrc: string | undefined; // Update this dynamically via a WebSocket or other method
   private ws: WebSocket | undefined;
 
-  constructor(public activeModal: NgbActiveModal, private apiService: ApiService) {}
+  constructor(public activeModal: NgbActiveModal, private apiService: ApiService) { }
 
   ngOnInit(): void {
-    if (this.cameraId !== undefined) {
-      this.ws = this.apiService.getWebSocket(this.cameraId);
+    if (this.camera !== undefined && this.camera.isMonitoring) {
+      this.ws = this.apiService.getWebSocket(this.camera.cameraId);
 
       this.ws.addEventListener('message', (event) => {
-        console.log('Test from websocket', event);
+        this.liveImageSrc = 'data:image/jpeg;base64,' + event.data;
+      });
+    }
+    else {
+      
+      this.ws = this.apiService.getPreviewWebsocket(this.camera!.cameraId);
+
+      this.ws.addEventListener('message', (event) => {
         this.liveImageSrc = 'data:image/jpeg;base64,' + event.data;
       });
     }

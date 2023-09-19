@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { ApiService } from '../api.service';
+import { LoaderService } from '../loader.service';
 
 @Component({
   selector: 'app-settings',
@@ -11,13 +12,18 @@ export class SettingsComponent {
   facialDetection: boolean | undefined; // Initialize with "Disable"
   notificationCooldown: Number | undefined; // Initialize with the minimum value (5 seconds)
 
-  constructor(private apiService: ApiService) { } // Inject ApiService
+  constructor(private apiService: ApiService,
+    private loaderService: LoaderService) { } // Inject ApiService
 
   ngOnInit(): void {
+    this.loaderService.show();
+
     this.apiService.getSystemSettings().subscribe((settings) => {
       this.nightVision = settings.NightVisionEnabled;
       this.facialDetection = settings.FacialRecognitionEnabled;
       this.notificationCooldown = settings.NotificationCooldown;
+
+      this.loaderService.hide();
     });
   }
 

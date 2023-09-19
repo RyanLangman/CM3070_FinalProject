@@ -1,44 +1,47 @@
 import os
+from typing import List
 from websockets.exceptions import ConnectionClosedOK
-from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import cv2
 import base64
-import time
-from fastapi import BackgroundTasks
-from collections import deque
 from fastapi.responses import JSONResponse, StreamingResponse
-from background_tasks.tasks import perform_detection, resize_and_encode_frame, detect_faces, save_frame, frames, frame_locks, monitoring_flags, start_camera, apply_night_vision
-from models.models import Settings, Recording, VideoPreviews
+from background_tasks.tasks import resize_and_encode_frame, frames, frame_locks, monitoring_flags, start_camera
+from models.config import Config
+from models.models import CameraPreview, Previews, Settings, Recording
 from helpers.settings_methods import load_settings_from_file, save_settings_to_file
-from helpers.cameras import get_available_cameras
 import asyncio
 import threading
-from aiohttp import web
 
 routes = APIRouter()
 
-global_available_cameras = None
-
-@routes.get("/video_feed_previews", response_model=VideoPreviews)
+@routes.get("/video_feed_previews", response_model=Previews)
 async def get_video_feed():
-    global global_available_cameras 
+    available_cameras = Config.available_cameras
+    camera_previews: List[CameraPreview] = []
     
-    if global_available_cameras is None:
-        global_available_cameras = get_available_cameras()
-    cameras = {}
-    
-    for camera_id in global_available_cameras:
+    for camera_id in available_cameras:
         cap = cv2.VideoCapture(camera_id)
         ret, frame = cap.read()
-        
+
         if ret:
             to_send = resize_and_encode_frame(frame)
-            cameras[camera_id] = base64.b64encode(to_send).decode('utf-8')
-            # frames[camera_id] = base64.b64encode(to_send).decode('utf-8')
+            encoded_frame = base64.b64encode(to_send).decode('utf-8')
+        else:
+            encoded_frame = None
+
+        is_monitoring = monitoring_flags.get(camera_id, False)
         
         cap.release()
 
-    return VideoPreviews(frames=cameras)
+        if encoded_frame is not None:
+            preview = CameraPreview(
+                cameraId=camera_id,
+                frame=encoded_frame,
+                isMonitoring=is_monitoring
+            )
+            camera_previews.append(preview)
+
+    return Previews(cameraPreviews=camera_previews)
 
 @routes.post("/start_monitoring/{camera_id}")
 async def start_monitoring(camera_id: int):
@@ -134,8 +137,30 @@ async def websocket_endpoint(websocket: WebSocket, camera_id: int):
                 await asyncio.sleep(0.05)
                 await websocket.send_text(base64.b64encode(to_send).decode('utf-8'))
             else:
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.05)
     except ConnectionClosedOK:
         print("WebSocket connection closed cleanly.")
     except WebSocketDisconnect:
+        await websocket.close()
+
+@routes.websocket("/ws/{camera_id}/preview")
+async def websocket_endpoint(websocket: WebSocket, camera_id: int):
+    await websocket.accept()
+
+    cap = cv2.VideoCapture(camera_id)
+
+    try:
+        while True:
+            ret, frame = cap.read()
+
+            if ret:
+                to_send = resize_and_encode_frame(frame)
+                await asyncio.sleep(0.05)
+                await websocket.send_text(base64.b64encode(to_send).decode('utf-8'))
+            else:
+                await websocket.send_text("error: Failed to capture frame")
+    except WebSocketDisconnect:
+        pass  # Handle disconnection
+    finally:
+        cap.release() 
         await websocket.close()

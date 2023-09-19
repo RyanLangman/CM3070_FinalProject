@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { ConfirmDeleteRecordingModalComponent } from '../confirm-delete-recording-modal/confirm-delete-recording-modal.component';
 import { ApiService } from '../api.service';
+import { LoaderService } from '../loader.service';
 
 interface Recording {
   datetime: string;
@@ -21,7 +22,8 @@ export class RecordingsComponent {
 
   constructor(
     private modalService: NgbModal,
-    private apiService: ApiService 
+    private apiService: ApiService,
+    private loaderService: LoaderService
   ) {}
 
   ngOnInit(): void {
@@ -34,15 +36,14 @@ export class RecordingsComponent {
   }
 
   fetchRecordings(): void {
-    this.apiService.getRecordings().subscribe(
-      data => {
-        this.files = data.files;
-        this.totalItems = this.files.length;
-      },
-      error => {
-        console.error('Error fetching recordings:', error);
-      }
-    );
+    this.loaderService.show();
+
+    this.apiService.getRecordings().subscribe((response) => {
+      this.files = response.files;
+      this.totalItems = this.files.length;
+
+      this.loaderService.hide();
+    });
   }
 
   get displayedFiles(): Recording[] {

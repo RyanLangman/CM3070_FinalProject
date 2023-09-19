@@ -10,6 +10,7 @@ import { DashboardComponent } from './dashboard/dashboard.component';
 import { RecordingsComponent } from './recordings/recordings.component';
 import { ConfirmDeleteRecordingModalComponent } from './confirm-delete-recording-modal/confirm-delete-recording-modal.component';
 import { FormsModule } from '@angular/forms';
+import { LoaderComponent } from './loader/loader.component';
 
 @NgModule({
   declarations: [
@@ -18,7 +19,8 @@ import { FormsModule } from '@angular/forms';
     SettingsComponent,
     DashboardComponent,
     RecordingsComponent,
-    ConfirmDeleteRecordingModalComponent
+    ConfirmDeleteRecordingModalComponent,
+    LoaderComponent
   ],
   imports: [
     BrowserModule,

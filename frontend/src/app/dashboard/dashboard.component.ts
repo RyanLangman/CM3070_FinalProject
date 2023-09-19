@@ -2,10 +2,16 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { ApiService } from '../api.service';
 import { LivestreamModalComponent } from '../livestream-modal/livestream-modal.component';
+import { LoaderService } from '../loader.service';
 
-// Define the VideoPreviews type
-interface VideoPreviews {
-  frames: { [key: number]: string };  // Dictionary of webcam IDs to base64 encoded frame strings
+interface CameraPreview {
+  cameraId: number;
+  frame: string;
+  isMonitoring: boolean;
+}
+
+interface Previews {
+  cameraPreviews: CameraPreview[];
 }
 
 @Component({
@@ -15,39 +21,48 @@ interface VideoPreviews {
 })
 export class DashboardComponent {
   imageSrc: string | undefined;
-  videoPreviews: VideoPreviews;
+  previews: Previews | undefined;
   isMonitoring: { [key: number]: boolean } = {};
 
-  constructor(private apiService: ApiService, private modalService: NgbModal) {
-    this.videoPreviews = { frames: {} };
+  constructor(private apiService: ApiService, 
+    private modalService: NgbModal,
+    private loaderService: LoaderService) {
   }
 
-  ngOnInit(): void {  // OnInit lifecycle hook added
+  ngOnInit(): void {
     this.getCamerasAndVideoFeedPreviews();
   }
 
   getCamerasAndVideoFeedPreviews(): void {
+    this.loaderService.show();
+
     this.apiService.getVideoFeedPreviews().subscribe(response => {
-      console.log(response);
-      this.videoPreviews = response as VideoPreviews;  // Store the data
+      this.previews = response;
+      this.loaderService.hide();
     });
   }
-  
+
   startMonitoring(cameraId: number): void {
-    this.apiService.startMonitoring(cameraId).subscribe(response => {
-      this.isMonitoring[cameraId] = true;
+    this.apiService.startMonitoring(cameraId).subscribe(() => {
+      const cameraPreview = this.previews?.cameraPreviews.find(preview => preview.cameraId === cameraId);
+      if (cameraPreview) {
+        cameraPreview.isMonitoring = true;
+      }
     });
   }
 
   stopMonitoring(cameraId: number): void {
-    this.apiService.stopMonitoring(cameraId).subscribe(response => {
-      this.isMonitoring[cameraId] = false;
+    this.apiService.stopMonitoring(cameraId).subscribe(() => {
+      const cameraPreview = this.previews?.cameraPreviews.find(preview => preview.cameraId === cameraId);
+      if (cameraPreview) {
+        cameraPreview.isMonitoring = false;
+      }
     });
   }
 
-  viewLive(cameraId: number): void {
+  view(camera: CameraPreview): void {
     const modalRef = this.modalService.open(LivestreamModalComponent);
-    modalRef.componentInstance.cameraId = cameraId;
+    modalRef.componentInstance.camera = camera;
   }
 
   ngOnDestroy(): void {

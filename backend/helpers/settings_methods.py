@@ -8,7 +8,7 @@ def load_settings_from_file(file_path='settings.json'):
             data = json.load(f)
             return Settings(**data)
     else:
-        default_settings = Settings(NightVisionEnabled=True, FacialRecognitionEnabled=True, NotificationCooldown=10, TelegramAPI="api_key_here")
+        default_settings = Settings(NightVisionEnabled=True, FacialRecognitionEnabled=True, NotificationCooldown=10, RecordingLengthInMinutes=5)
         save_settings_to_file(default_settings, file_path)
         return default_settings
 
