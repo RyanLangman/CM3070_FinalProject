@@ -1,7 +1,15 @@
 <div class="modal-header">
-    <h4 class="modal-title">Live Feed - Camera ID: {{ camera?.cameraId }}</h4>
+  <h4 class="modal-title">Live Feed - Camera ID: {{ camera?.cameraId }}</h4>
+</div>
+<div class="modal-body">
+  <div *ngIf="!liveImageSrc" class="d-flex justify-content-center text-center flex-column mt-5 mb-5">
+    <fa-icon [icon]="faGear" size="3x" class="fa-spin"></fa-icon>
+    <div class="text-center">
+      <p class="lead">
+        Establishing connection to camera...
+      </p>
+    </div>
   </div>
-  <div class="modal-body">
-    <img style="width: 100%;" [src]="liveImageSrc" alt="Live Feed" />
-  </div>
-  
+
+  <img style="width: 100%;" [src]="liveImageSrc" alt="Live Feed" *ngIf="liveImageSrc" />
+</div>

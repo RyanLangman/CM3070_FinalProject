@@ -1,6 +1,7 @@
 import { Component, Input, OnDestroy } from '@angular/core';
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
 import { ApiService } from '../api.service';
+import { faGear } from '@fortawesome/free-solid-svg-icons';
 
 interface CameraPreview {
   cameraId: number;
@@ -15,6 +16,7 @@ interface CameraPreview {
 })
 export class LivestreamModalComponent implements OnDestroy {
   @Input() camera: CameraPreview | undefined;
+  faGear = faGear;
   liveImageSrc: string | undefined; // Update this dynamically via a WebSocket or other method
   private ws: WebSocket | undefined;
 

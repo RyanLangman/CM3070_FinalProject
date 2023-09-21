@@ -73,7 +73,9 @@ export class DashboardComponent {
   }
 
   view(camera: CameraPreview): void {
-    const modalRef = this.modalService.open(LivestreamModalComponent);
+    const modalRef = this.modalService.open(LivestreamModalComponent, {
+      modalDialogClass: 'modal-lg'
+    });
     modalRef.componentInstance.camera = camera;
   }
 
