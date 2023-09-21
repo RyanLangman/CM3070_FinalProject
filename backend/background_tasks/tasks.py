@@ -88,7 +88,7 @@ def video_writer():
 
         for f in frames_to_save:
             out.write(f)
-
+        
         out.release()
 
         video_write_queue.task_done()
@@ -100,9 +100,9 @@ def start_camera(camera_id, settings):
     cap = cv2.VideoCapture(camera_id)
     frame_rate = int(cap.get(cv2.CAP_PROP_FPS))
 
-    frames_to_save = deque(maxlen=frame_rate * (60*30))
+    frames_to_save = deque(maxlen=frame_rate * (60))
 
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # codec for .mp4 format
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')
     height = None
     width = None
 
@@ -136,10 +136,10 @@ def start_camera(camera_id, settings):
     video_write_queue.put((fourcc, deepcopy(frames_to_save), folder_path, camera_id, frame_rate, height, width))
     frames_to_save.clear()
 
-    # Release resources
     cap.release()
     frames.pop(camera_id, None)
     frame_locks.pop(camera_id, None)
+    
     video_write_queue.put(None)
     video_writer_thread.join()
 

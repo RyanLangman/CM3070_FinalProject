@@ -1,1 +1,1 @@
-{"NightVisionEnabled": true, "FacialRecognitionEnabled": true, "NotificationCooldown": 10, "RecordingLengthInMinutes": 5}
+{"NightVisionEnabled": false, "FacialRecognitionEnabled": false, "NotificationCooldown": 10, "RecordingLengthInMinutes": 5}

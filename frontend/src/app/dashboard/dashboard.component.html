@@ -31,10 +31,10 @@
             </div>
             <div class="card-footer">
                 <div class="btn-group d-flex">
-                    <button type="button" class="btn btn-success" *ngIf="!cameraPreview.isMonitoring">
+                    <button type="button" class="btn btn-success" *ngIf="!cameraPreview.isMonitoring" (click)="startMonitoring(cameraPreview.cameraId)">
                         Start Monitoring
                     </button>
-                    <button type="button" class="btn btn-danger" *ngIf="cameraPreview.isMonitoring">
+                    <button type="button" class="btn btn-danger" *ngIf="cameraPreview.isMonitoring" (click)="stopMonitoring(cameraPreview.cameraId)">
                         Stop Monitoring
                     </button>
                     <button type="button" class="btn btn-primary" *ngIf="cameraPreview.isMonitoring" (click)="view(cameraPreview)">

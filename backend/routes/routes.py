@@ -1,10 +1,10 @@
 import os
 from typing import List
 from websockets.exceptions import ConnectionClosedOK
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 import cv2
 import base64
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from background_tasks.tasks import resize_and_encode_frame, frames, frame_locks, monitoring_flags, start_camera
 from models.config import Config
 from models.models import CameraPreview, Previews, Settings, Recording
@@ -105,16 +105,17 @@ async def get_recordings():
 
 @routes.get("/stream")
 async def stream_video(datetime: str, filename: str):
-    video_path = f"recordings/{datetime}/{filename}"
-
-    if not os.path.exists(video_path):
-        return {"status": 404, "detail": "File not found"}
-
-    def iterfile(): 
-        with open(video_path, mode="rb") as file_like:  # 
-            yield from file_like  # 
-
-    return StreamingResponse(iterfile(), media_type="video/mp4")
+    # Construct the relative path first
+    relative_video_path = f"recordings/{datetime}/{filename}"
+    
+    # Convert to an absolute path
+    absolute_video_path = os.path.abspath(relative_video_path)
+    
+    # Validate if the file actually exists
+    if not os.path.exists(absolute_video_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    return FileResponse(absolute_video_path)
 
 @routes.websocket("/ws/{camera_id}")
 async def websocket_endpoint(websocket: WebSocket, camera_id: int):
