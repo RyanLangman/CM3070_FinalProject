@@ -2,7 +2,7 @@ import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
-import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { NgbModule, NgbToastModule } from '@ng-bootstrap/ng-bootstrap';
 import { HttpClientModule } from '@angular/common/http';
 import { LivestreamModalComponent } from './livestream-modal/livestream-modal.component';
 import { SettingsComponent } from './settings/settings.component';
@@ -12,6 +12,7 @@ import { ConfirmDeleteRecordingModalComponent } from './confirm-delete-recording
 import { FormsModule } from '@angular/forms';
 import { LoaderComponent } from './loader/loader.component';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
+import { ToastGlobalComponent } from './toast-global/toast-global.component';
 
 @NgModule({
   declarations: [
@@ -21,7 +22,8 @@ import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
     DashboardComponent,
     RecordingsComponent,
     ConfirmDeleteRecordingModalComponent,
-    LoaderComponent
+    LoaderComponent,
+    ToastGlobalComponent
   ],
   imports: [
     BrowserModule,
@@ -29,7 +31,8 @@ import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
     NgbModule,
     HttpClientModule,
     FormsModule,
-    FontAwesomeModule
+    FontAwesomeModule,
+    NgbToastModule
   ],
   providers: [],
   bootstrap: [AppComponent]

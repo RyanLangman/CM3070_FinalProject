@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { ApiService } from '../api.service';
 import { LoaderService } from '../loader.service';
+import { ToastService } from '../toast.service';
 
 @Component({
   selector: 'app-settings',
@@ -13,7 +14,8 @@ export class SettingsComponent {
   notificationCooldown: Number | undefined; // Initialize with the minimum value (5 seconds)
 
   constructor(private apiService: ApiService,
-    private loaderService: LoaderService) { } // Inject ApiService
+    private loaderService: LoaderService,
+    public toastService: ToastService) { } // Inject ApiService
 
   ngOnInit(): void {
     this.loaderService.show();
@@ -28,26 +30,50 @@ export class SettingsComponent {
   }
 
   toggleNightVision() {
-    this.apiService.toggleNightVision().subscribe(() => {
-      this.nightVision = !this.nightVision;
+    let previous = this.nightVision;
+    this.apiService.toggleNightVision().subscribe({
+      next: () => {
+        this.nightVision = !this.nightVision;
+        this.toastService.show("Nightvision updated.", { classname: 'bg-success text-light', delay: 5000 });
+      },
+      error: (err) => {
+        console.error('An error occurred:', err);
+        this.toastService.show("Nightvision failed to update.", { classname: 'bg-danger text-light', delay: 3000000 });
+        this.nightVision = previous;
+      }
     });
   }
 
   toggleFacialDetection() {
-    this.apiService.toggleFacialRecognition().subscribe(() => {
-      this.facialDetection = !this.facialDetection;
+    let previous = this.facialDetection;
+    this.apiService.toggleFacialRecognition().subscribe({
+      next: () => {
+        this.facialDetection = !this.facialDetection;
+        this.toastService.show("Facial Detection updated.", { classname: 'bg-success text-light', delay: 5000 });
+      },
+      error: (err) => {
+        console.error('An error occurred:', err);
+        this.toastService.show("Facial Detection failed to update.", { classname: 'bg-danger text-light', delay: 5000 });
+        this.facialDetection = previous;
+      }
     });
   }
 
-  saveSettings() {
+  saveNotificationCooldown() {
     const settings = {
-      nightVision: this.nightVision,
-      facialDetection: this.facialDetection,
       notificationCooldown: this.notificationCooldown
     };
 
-    this.apiService.updateSystemSettings(settings).subscribe(() => {
-      console.log('Success!')
+    let previous = this.notificationCooldown;
+    this.apiService.saveNotificationCooldown(settings).subscribe({
+      next: () => {
+        this.toastService.show("Notification cooldown updated.", { classname: 'bg-success text-light', delay: 5000 });
+      },
+      error: (err) => {
+        console.error('An error occurred:', err);
+        this.toastService.show("Notification cooldown failed to update.", { classname: 'bg-danger text-light', delay: 5000 });
+        this.notificationCooldown = previous;
+      }
     });
   }
 }

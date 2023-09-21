@@ -43,7 +43,7 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/settings`);
   }
 
-  updateSystemSettings(settings: any): Observable<any> {
+  saveNotificationCooldown(settings: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/settings`, settings);
   }
 
