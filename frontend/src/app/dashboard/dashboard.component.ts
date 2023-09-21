@@ -3,6 +3,8 @@ import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { ApiService } from '../api.service';
 import { LivestreamModalComponent } from '../livestream-modal/livestream-modal.component';
 import { LoaderService } from '../loader.service';
+import { ToastService } from '../toast.service';
+import { faGear } from '@fortawesome/free-solid-svg-icons';
 
 interface CameraPreview {
   cameraId: number;
@@ -23,10 +25,13 @@ export class DashboardComponent {
   imageSrc: string | undefined;
   previews: Previews | undefined;
   isMonitoring: { [key: number]: boolean } = {};
+  loading: boolean = false;
+  faGear = faGear;
 
   constructor(private apiService: ApiService, 
     private modalService: NgbModal,
-    private loaderService: LoaderService) {
+    private loaderService: LoaderService,
+    private toastService: ToastService) {
   }
 
   ngOnInit(): void {
@@ -34,11 +39,18 @@ export class DashboardComponent {
   }
 
   getCamerasAndVideoFeedPreviews(): void {
-    this.loaderService.show();
+    this.loading = true;
 
-    this.apiService.getVideoFeedPreviews().subscribe(response => {
-      this.previews = response;
-      this.loaderService.hide();
+    this.apiService.getVideoFeedPreviews().subscribe({
+      next: (response) => {
+        this.previews = response;
+        this.loading = false;
+      },
+      error: (err) => {
+        this.toastService.show("Failed getting cameras.", { classname: 'bg-danger text-light', delay: 5000 });
+        this.loaderService.hide();
+        this.loading = false;
+      }
     });
   }
 

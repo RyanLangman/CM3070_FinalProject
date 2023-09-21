@@ -33,7 +33,6 @@ export class SettingsComponent {
     let previous = this.nightVision;
     this.apiService.toggleNightVision().subscribe({
       next: () => {
-        this.nightVision = !this.nightVision;
         this.toastService.show("Nightvision updated.", { classname: 'bg-success text-light', delay: 5000 });
       },
       error: (err) => {
@@ -48,7 +47,6 @@ export class SettingsComponent {
     let previous = this.facialDetection;
     this.apiService.toggleFacialRecognition().subscribe({
       next: () => {
-        this.facialDetection = !this.facialDetection;
         this.toastService.show("Facial Detection updated.", { classname: 'bg-success text-light', delay: 5000 });
       },
       error: (err) => {
