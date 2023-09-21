@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { faDashboard, faBars, faVideo, faGear } from '@fortawesome/free-solid-svg-icons';
 
 @Component({
   selector: 'app-root',
@@ -6,4 +7,8 @@ import { Component } from '@angular/core';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
+  faDashboard = faDashboard;
+  faBars = faBars;
+  faVideo = faVideo;
+  faGear = faGear;
 }

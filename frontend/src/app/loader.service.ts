@@ -11,7 +11,7 @@ export class LoaderService {
   public readonly isLoading$ = this._isLoading.asObservable();
 
   show() {
-    this._isLoading.next(true);
+    this._isLoading.next(false);
   }
 
   hide() {

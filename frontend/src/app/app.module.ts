@@ -11,6 +11,7 @@ import { RecordingsComponent } from './recordings/recordings.component';
 import { ConfirmDeleteRecordingModalComponent } from './confirm-delete-recording-modal/confirm-delete-recording-modal.component';
 import { FormsModule } from '@angular/forms';
 import { LoaderComponent } from './loader/loader.component';
+import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 
 @NgModule({
   declarations: [
@@ -27,7 +28,8 @@ import { LoaderComponent } from './loader/loader.component';
     AppRoutingModule,
     NgbModule,
     HttpClientModule,
-    FormsModule
+    FormsModule,
+    FontAwesomeModule
   ],
   providers: [],
   bootstrap: [AppComponent]
