@@ -23,14 +23,13 @@ export class ConfirmDeleteRecordingModalComponent {
   deleteFile() {
       this.apiService.deleteRecording(this.file!.datetime, this.file!.filename).subscribe({
         next: (response) => {
-        this.toastService.show("Successfully deleted recording.", { classname: 'bg-success text-light', delay: 5000 });
-          
+          this.toastService.show("Successfully deleted recording.", { classname: 'bg-success text-light', delay: 5000 });
           this.activeModal.close('Deleted');
         },
         error: (err) => {
           console.log('Error deleting recording:', err);
-        this.toastService.show("Failed to delete recording.", { classname: 'bg-danger text-light', delay: 5000 });
-        this.activeModal.close('Deleted');
+          this.toastService.show("Failed to delete recording.", { classname: 'bg-danger text-light', delay: 5000 });
+          this.activeModal.close('Deleted');
         }
       });
   }
