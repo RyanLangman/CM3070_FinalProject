@@ -8,6 +8,7 @@ import numpy as np
 import time
 from collections import deque
 from queue import Queue
+from helpers.email import send_email
 
 from helpers.settings_methods import load_settings_from_file
 
@@ -73,6 +74,9 @@ int_to_label = {v: k for k, v in label_to_int.items()}
 video_write_queue = Queue()
 
 def video_writer():
+    """
+    Thread function for writing video frames to video files.
+    """
     while True:
         task = video_write_queue.get()
 
@@ -94,6 +98,13 @@ def video_writer():
         video_write_queue.task_done()
 
 def start_camera(camera_id, settings):    
+    """
+    Start capturing video from a camera and processing it.
+    
+    Args:
+        camera_id (int): ID of the camera to capture from.
+        settings: Settings object containing system settings.
+    """
     video_writer_thread = threading.Thread(target=video_writer)
     video_writer_thread.start()
 
@@ -105,6 +116,9 @@ def start_camera(camera_id, settings):
     fourcc = cv2.VideoWriter_fourcc(*'avc1')
     height = None
     width = None
+    
+    # Testing
+    last_frame_to_email = None
 
     while monitoring_flags.get(camera_id, True):
         ret, frame = cap.read()
@@ -122,6 +136,7 @@ def start_camera(camera_id, settings):
                 os.makedirs(folder_path, exist_ok=True)
 
             frames_to_save.append(frame)
+            last_frame_to_email = frame
 
             if len(frames_to_save) == frames_to_save.maxlen:
                 video_write_queue.put((fourcc, deepcopy(frames_to_save), folder_path, camera_id, frame_rate, height, width))
@@ -132,6 +147,9 @@ def start_camera(camera_id, settings):
         else:
             print("Failed to capture frame")
 
+    _, buffer = cv2.imencode('.jpg', last_frame_to_email)
+    image_data = buffer.tobytes()
+    send_email(image_data)
 
     video_write_queue.put((fourcc, deepcopy(frames_to_save), folder_path, camera_id, frame_rate, height, width))
     frames_to_save.clear()
@@ -144,6 +162,18 @@ def start_camera(camera_id, settings):
     video_writer_thread.join()
 
 async def perform_detection(frame, face_cascade, frame_count, skip_frames):
+    """
+    Perform face detection on the given frame.
+
+    Args:
+        frame: The frame to perform face detection on.
+        face_cascade: The face cascade classifier.
+        frame_count: The current frame count.
+        skip_frames: The number of frames to skip before performing detection.
+
+    Returns:
+        The frame with face detection annotations.
+    """
     if frame_count % skip_frames == 0:
         try:
             # Perform face detection
@@ -156,6 +186,15 @@ async def perform_detection(frame, face_cascade, frame_count, skip_frames):
     return frame
 
 def resize_and_encode_frame(frame):
+    """
+    Resize and encode a frame for streaming.
+
+    Args:
+        frame: The frame to resize and encode.
+
+    Returns:
+        bytes: The encoded frame.
+    """
     original_height, original_width = frame.shape[:2]
     aspect_ratio = original_width / original_height
     new_width = 640  # or any value you want
@@ -165,6 +204,17 @@ def resize_and_encode_frame(frame):
     return buffer.tobytes()
 
 def resize_for_prediction(frame, target_height=480, target_width=640):
+    """
+    Resize a frame for face recognition prediction.
+
+    Args:
+        frame: The frame to resize.
+        target_height (int): The target height after resizing.
+        target_width (int): The target width after resizing.
+
+    Returns:
+        np.ndarray: The resized frame.
+    """
     height, width = frame.shape[:2]
     
     # Calculate the ratio of the new dimensions to the original dimensions
@@ -178,6 +228,15 @@ def resize_for_prediction(frame, target_height=480, target_width=640):
     return resized_frame
 
 def detect_faces(frame):
+    """
+    Detect faces in the given frame and annotate it.
+
+    Args:
+        frame: The frame to detect faces in.
+
+    Returns:
+        np.ndarray: The annotated frame.
+    """
     global last_saved_time
     current_time = datetime.now()
 
@@ -226,9 +285,24 @@ def detect_faces(frame):
     return copied_frame
 
 def send_notification(message: str):
+    """
+    Send a notification message.
+
+    Args:
+        message (str): The notification message.
+    """
     pass
 
 def save_frame(frame, labeled_frame, folder_name="object_detection"):
+    """
+    Save frames with labels and handle notification.
+
+    Args:
+        frame: The frame to save.
+        labeled_frame: The labeled frame.
+        folder_name (str): The folder name to save frames.
+
+    """
     global last_notification_time
 
     # Create folder if not exists
@@ -256,11 +330,29 @@ def save_frame(frame, labeled_frame, folder_name="object_detection"):
         last_notification_time = current_time
         
 def is_dark_image(frame):
+    """
+    Check if an image is dark based on its mean brightness.
+
+    Args:
+        frame: The image frame to check.
+
+    Returns:
+        bool: True if the image is dark, False otherwise.
+    """
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     mean_brightness = np.mean(gray)
     return mean_brightness < 30  # Adjust the threshold according to your needs
 
 def apply_night_vision(frame):
+    """
+    Apply night vision enhancement to a frame if it's dark.
+
+    Args:
+        frame: The frame to enhance.
+
+    Returns:
+        np.ndarray: The enhanced frame.
+    """
     if is_dark_image(frame):
         # Convert to YUV color space
         yuv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)

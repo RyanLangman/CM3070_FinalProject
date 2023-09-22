@@ -16,6 +16,9 @@ routes = APIRouter()
 
 @routes.get("/video_feed_previews", response_model=Previews)
 async def get_video_feed():
+    """
+    Retrieve camera previews and return them as a list.
+    """
     available_cameras = Config.available_cameras
     camera_previews: List[CameraPreview] = []
     
@@ -45,6 +48,9 @@ async def get_video_feed():
 
 @routes.post("/start_monitoring/{camera_id}")
 async def start_monitoring(camera_id: int):
+    """
+    Start monitoring the specified camera if not already monitoring.
+    """
     if camera_id not in frames:
         frames[camera_id] = None
         frame_locks[camera_id] = threading.Lock()
@@ -57,6 +63,9 @@ async def start_monitoring(camera_id: int):
 
 @routes.post("/stop_monitoring/{camera_id}")
 async def stop_monitoring(camera_id: int):
+    """
+    Stop monitoring the specified camera if it's being monitored.
+    """
     if camera_id in monitoring_flags:
         monitoring_flags[camera_id] = False  # Clear the flag
         return JSONResponse(content={"message": f"Stopped monitoring camera {camera_id}"})
@@ -65,16 +74,25 @@ async def stop_monitoring(camera_id: int):
 
 @routes.get("/settings")
 async def get_system_settings():
+    """
+    Get the current system settings.
+    """
     current_settings = load_settings_from_file()
     return current_settings
 
 @routes.post("/settings")
 async def update_system_settings(settings: Settings):
+    """
+    Update the system settings.
+    """
     save_settings_to_file(settings)
     return {"message": "Settings updated"}
 
 @routes.post("/toggle_facial_recognition")
 async def toggle_facial_recognition():
+    """
+    Toggle facial recognition in system settings.
+    """
     settings = load_settings_from_file()
     settings.FacialRecognitionEnabled = not settings.FacialRecognitionEnabled
     save_settings_to_file(settings)
@@ -82,6 +100,9 @@ async def toggle_facial_recognition():
 
 @routes.post("/toggle_night_vision")
 async def toggle_night_vision():
+    """
+    Toggle night vision in system settings.
+    """
     settings = load_settings_from_file()
     settings.NightVisionEnabled = not settings.NightVisionEnabled
     save_settings_to_file(settings)
@@ -89,15 +110,18 @@ async def toggle_night_vision():
 
 @routes.get("/recordings")
 async def get_recordings():
-    root_dir = "recordings"  # Replace this with the actual path to your 'recordings' directory
+    """
+    List and retrieve recorded video files.
+    """
+    root_dir = "recordings"
     recordings = []
 
     if os.path.exists(root_dir):
-        for date_folder in sorted(os.listdir(root_dir), reverse=True):  # Sort folders by datetime in descending order
+        for date_folder in sorted(os.listdir(root_dir), reverse=True):
             date_path = os.path.join(root_dir, date_folder)
             if os.path.isdir(date_path):
-                for file in sorted(os.listdir(date_path), reverse=True):  # Sort files by filename in descending order
-                    if file.endswith(".mp4"):  # Include other video extensions if necessary
+                for file in sorted(os.listdir(date_path), reverse=True):
+                    if file.endswith(".mp4"):
                         recording = Recording(datetime=date_folder, filename=file)
                         recordings.append(recording.dict())
 
@@ -105,13 +129,13 @@ async def get_recordings():
 
 @routes.get("/stream")
 async def stream_video(datetime: str, filename: str):
-    # Construct the relative path first
+    """
+    Stream video files based on the provided date and filename.
+    """
     relative_video_path = f"recordings/{datetime}/{filename}"
     
-    # Convert to an absolute path
     absolute_video_path = os.path.abspath(relative_video_path)
     
-    # Validate if the file actually exists
     if not os.path.exists(absolute_video_path):
         raise HTTPException(status_code=404, detail="File not found")
     
@@ -119,6 +143,9 @@ async def stream_video(datetime: str, filename: str):
 
 @routes.websocket("/ws/{camera_id}")
 async def websocket_endpoint(websocket: WebSocket, camera_id: int):
+    """
+    WebSocket endpoint for real-time video streaming from a camera.
+    """
     await websocket.accept()
 
     if camera_id not in frames:
@@ -146,6 +173,9 @@ async def websocket_endpoint(websocket: WebSocket, camera_id: int):
 
 @routes.websocket("/ws/{camera_id}/preview")
 async def websocket_endpoint(websocket: WebSocket, camera_id: int):
+    """
+    WebSocket endpoint for camera preview streaming.
+    """
     await websocket.accept()
 
     cap = cv2.VideoCapture(camera_id)
@@ -161,7 +191,7 @@ async def websocket_endpoint(websocket: WebSocket, camera_id: int):
             else:
                 await websocket.send_text("error: Failed to capture frame")
     except WebSocketDisconnect:
-        pass  # Handle disconnection
+        pass
     finally:
         cap.release() 
         await websocket.close()
