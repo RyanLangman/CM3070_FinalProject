@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
 
 @Injectable({
@@ -43,8 +43,9 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/settings`);
   }
 
-  saveNotificationCooldown(settings: any): Observable<any> {
-    return this.http.post(`${this.baseUrl}/settings`, settings);
+  saveNotificationCooldown(notificationCooldown: any): Observable<any> {
+    const params = new HttpParams().set('notificationCooldown', notificationCooldown.toString());
+    return this.http.post(`${this.baseUrl}/set_notification_cooldown`, null, { params });
   }
 
   toggleFacialRecognition(): Observable<any> {

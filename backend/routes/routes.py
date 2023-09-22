@@ -80,13 +80,15 @@ async def get_system_settings():
     current_settings = load_settings_from_file()
     return current_settings
 
-@routes.post("/settings")
-async def update_system_settings(settings: Settings):
+@routes.post("/set_notification_cooldown")
+async def set_notification_cooldown(notificationCooldown: int):
     """
-    Update the system settings.
+    Update the notification cooldown.
     """
+    settings = load_settings_from_file()
+    settings.NotificationCooldown = notificationCooldown
     save_settings_to_file(settings)
-    return {"message": "Settings updated"}
+    return {"message": "Notification cooldown updated"}
 
 @routes.post("/toggle_facial_recognition")
 async def toggle_facial_recognition():

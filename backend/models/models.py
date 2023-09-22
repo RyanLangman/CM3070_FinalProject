@@ -5,7 +5,6 @@ class Settings(BaseModel):
     NightVisionEnabled: bool = False
     FacialRecognitionEnabled: bool = False
     NotificationCooldown: int = 300
-    RecordingLengthInMinutes: int = 5
 
 class CameraPreview(BaseModel):
     cameraId: int

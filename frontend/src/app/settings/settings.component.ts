@@ -58,12 +58,8 @@ export class SettingsComponent {
   }
 
   saveNotificationCooldown() {
-    const settings = {
-      notificationCooldown: this.notificationCooldown
-    };
-
     let previous = this.notificationCooldown;
-    this.apiService.saveNotificationCooldown(settings).subscribe({
+    this.apiService.saveNotificationCooldown(this.notificationCooldown).subscribe({
       next: () => {
         this.toastService.show("Notification cooldown updated.", { classname: 'bg-success text-light', delay: 5000 });
       },
