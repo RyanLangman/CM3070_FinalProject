@@ -127,6 +127,24 @@ async def get_recordings():
 
     return JSONResponse(content={"files": recordings})
 
+@routes.delete("/recordings/{date}/{filename}")
+async def delete_recording(date: str, filename: str):
+    """
+    Delete a specific recorded video file based on its date and filename.
+    """
+    root_dir = "recordings"
+    file_path = os.path.join(root_dir, date, filename)
+
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+            return JSONResponse(content={"message": "Recording successfully deleted."}, status_code=200)
+        except Exception as e:
+            return JSONResponse(content={"message": f"An error occurred while deleting the recording: {str(e)}"}, status_code=500)
+    else:
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+
 @routes.get("/stream")
 async def stream_video(datetime: str, filename: str):
     """

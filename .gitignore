@@ -165,3 +165,5 @@ backend/recordings
 backend/background_tasks/reference_images
 backend/background_tasks/image_generator
 frontend/out
+backend/settings.json
+backend/face-trainer.yml

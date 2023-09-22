@@ -147,10 +147,6 @@ def start_camera(camera_id, settings):
         else:
             print("Failed to capture frame")
 
-    _, buffer = cv2.imencode('.jpg', last_frame_to_email)
-    image_data = buffer.tobytes()
-    send_email(image_data)
-
     video_write_queue.put((fourcc, deepcopy(frames_to_save), folder_path, camera_id, frame_rate, height, width))
     frames_to_save.clear()
 
@@ -263,37 +259,18 @@ def detect_faces(frame):
                 label = "Intruder"
                 cv2.putText(copied_frame, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
 
-                if last_saved_time is None or current_time - last_saved_time >= timedelta(seconds=15):        
-                    # Save the frame when intruder detected
-                    date_stamp = current_time.strftime("%Y-%m-%d")
-                    time_stamp = current_time.strftime("%H%M%S")
-                    folder_path = f"notifications/{date_stamp}"
-                    os.makedirs(folder_path, exist_ok=True)
-                    
+                if last_saved_time is None or current_time - last_saved_time >= timedelta(seconds=15):      
                     cv2.rectangle(copied_frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                    
+                    save_frame(frame, copied_frame)
 
-                    labelled_frame_path = os.path.join(folder_path, f"{date_stamp}_{time_stamp}_intruder_labelled.jpg")
-                    unlabelled_frame_path = os.path.join(folder_path, f"{date_stamp}_{time_stamp}_intruder_unlabelled.jpg")
-
-                    cv2.imwrite(labelled_frame_path, copied_frame)  # Save frame with label and box
-                    cv2.imwrite(unlabelled_frame_path, copied_frame)  # Save unaltered frame
-
-                    last_saved_time = current_time  # Update the last saved time
+                    last_saved_time = current_time
         else:
             print(f"Warning: id_ {id_} out of range for y_labels {y_labels}")
 
     return copied_frame
 
-def send_notification(message: str):
-    """
-    Send a notification message.
-
-    Args:
-        message (str): The notification message.
-    """
-    pass
-
-def save_frame(frame, labeled_frame, folder_name="object_detection"):
+def save_frame(frame, labeled_frame, folder_name="notifications"):
     """
     Save frames with labels and handle notification.
 
@@ -301,7 +278,6 @@ def save_frame(frame, labeled_frame, folder_name="object_detection"):
         frame: The frame to save.
         labeled_frame: The labeled frame.
         folder_name (str): The folder name to save frames.
-
     """
     global last_notification_time
 
@@ -324,7 +300,9 @@ def save_frame(frame, labeled_frame, folder_name="object_detection"):
     current_time = time.time()
     if current_time - last_notification_time > cooldown_period:
         # Send notification to Telegram
-        send_notification(f"Warning: Intruder detected.")
+        _, buffer = cv2.imencode('.jpg', labeled_frame)
+        image_data = buffer.tobytes()
+        send_email(image_data)
         
         # Update the last notification time
         last_notification_time = current_time

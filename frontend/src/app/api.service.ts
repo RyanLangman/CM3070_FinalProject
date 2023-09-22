@@ -59,6 +59,10 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/recordings`);
   }
 
+  deleteRecording(date: string, filename: string): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/recordings/${date}/${filename}`);
+  }
+
   getWebSocket(cameraId: number): WebSocket {
     const ws = new WebSocket(`ws://localhost:8000/api/v1/ws/${cameraId}`);
     return ws;
