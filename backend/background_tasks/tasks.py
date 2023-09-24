@@ -24,7 +24,6 @@ frame_locks = {}
 monitoring_flags = {}
 
 # Train the face recognizer
-# face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 recognizer = cv2.face.LBPHFaceRecognizer_create()
 
@@ -36,7 +35,7 @@ label_to_int = {}
 int_labels = []
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-image_dir = os.path.join(base_dir, "reference_images")
+image_dir = os.path.join(base_dir, "facial_recognition_training_data")
 # print(f"Scanning directory: {image_dir}")
 # Initialize variables
 label_counter = 0
@@ -44,7 +43,7 @@ label_counter = 0
 # Check if the directory exists
 for root, dirs, files in os.walk(image_dir):
     for file in files:
-        if file.endswith("png") or file.endswith("jpg"):
+        if file.lower().endswith("png") or file.lower().endswith("jpg"):
             path = os.path.join(root, file)
             label = os.path.basename(root)  # Check if this is correct
 
@@ -116,15 +115,12 @@ def start_camera(camera_id, settings):
     fourcc = cv2.VideoWriter_fourcc(*'avc1')
     height = None
     width = None
-    
-    # Testing
-    last_frame_to_email = None
 
     while monitoring_flags.get(camera_id, True):
         ret, frame = cap.read()
         if ret:
             if settings.FacialRecognitionEnabled:
-                detect_faces(frame)
+                frame = detect_faces(frame)
             if settings.NightVisionEnabled:
                 frame = apply_night_vision(frame)
 
@@ -136,7 +132,6 @@ def start_camera(camera_id, settings):
                 os.makedirs(folder_path, exist_ok=True)
 
             frames_to_save.append(frame)
-            last_frame_to_email = frame
 
             if len(frames_to_save) == frames_to_save.maxlen:
                 video_write_queue.put((fourcc, deepcopy(frames_to_save), folder_path, camera_id, frame_rate, height, width))
@@ -225,7 +220,7 @@ def resize_for_prediction(frame, target_height=480, target_width=640):
 
 def detect_faces(frame):
     """
-    Detect faces in the given frame and annotate it.
+    Detect faces in the given frame and, if trained, recognize them using LBPH. Otherwise, label all as "Intruder".
 
     Args:
         frame: The frame to detect faces in.
@@ -247,26 +242,26 @@ def detect_faces(frame):
 
     for (x, y, w, h) in faces:
         x, y, w, h = int(x * width_ratio), int(y * height_ratio), int(w * width_ratio), int(h * height_ratio)
-        
-        roi_gray = gray_resized[y:y+h, x:x+w]
-        id_, conf = recognizer.predict(roi_gray)
 
-        if id_ < len(y_labels):
-            if conf >= 95:
+        # Check if the recognizer has been trained
+        if len(y_labels) > 0:
+            roi_gray = gray_resized[y:y+h, x:x+w]
+            id_, conf = recognizer.predict(roi_gray)
+            
+            print(conf)
+            if id_ < len(y_labels) and conf <= 65:
                 label = y_labels[id_]
-                cv2.putText(copied_frame, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
             else:
                 label = "Intruder"
-                cv2.putText(copied_frame, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
-
-                if last_saved_time is None or current_time - last_saved_time >= timedelta(seconds=15):      
-                    cv2.rectangle(copied_frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-                    
-                    save_frame(frame, copied_frame)
-
-                    last_saved_time = current_time
         else:
-            print(f"Warning: id_ {id_} out of range for y_labels {y_labels}")
+            label = "Intruder"
+        
+        cv2.putText(copied_frame, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+
+        if label == "Intruder" and (last_saved_time is None or current_time - last_saved_time >= timedelta(seconds=15)):      
+            cv2.rectangle(copied_frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            save_frame(frame, copied_frame)
+            last_saved_time = current_time
 
     return copied_frame
 
@@ -302,7 +297,7 @@ def save_frame(frame, labeled_frame, folder_name="notifications"):
         # Send notification to Telegram
         _, buffer = cv2.imencode('.jpg', labeled_frame)
         image_data = buffer.tobytes()
-        send_email(image_data)
+        # send_email(image_data)
         
         # Update the last notification time
         last_notification_time = current_time
